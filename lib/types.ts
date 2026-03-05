@@ -6,6 +6,20 @@ export interface Message {
   sentAt: string;
 }
 
+export interface ConversationDTO {
+  partner: string;
+  lastMessageAt: string;
+}
+
+export interface ConversationsResponse {
+  content: ConversationDTO[];
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+  first: boolean;
+  numberOfElements: number;
+}
+
 export interface AuthRequest {
   username: string;
   password: string;

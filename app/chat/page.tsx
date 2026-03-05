@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { useAuth } from "@/lib/auth-context";
-import { getConversation } from "@/lib/api";
-import { Message } from "@/lib/types";
+import { getConversation, getConversations } from "@/lib/api";
+import { Message, ConversationDTO } from "@/lib/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws";
 
@@ -19,14 +19,19 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [contacts, setContacts] = useState<string[]>([]);
+  const [conversations, setConversations] = useState<ConversationDTO[]>([]);
   const clientRef = useRef<Client | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!token) {
       router.replace("/login");
+      return;
     }
+    // Load existing conversations on login
+    getConversations(token).then((res) => {
+      setConversations(res.content);
+    }).catch(() => {});
   }, [token, router]);
 
   const scrollToBottom = useCallback(() => {
@@ -53,12 +58,25 @@ export default function ChatPage() {
             return [...prev, message];
           });
 
-          // Add contact if new
+          // Update conversation list
           const otherUser =
             message.sender === username ? message.recipient : message.sender;
-          setContacts((prev) =>
-            prev.includes(otherUser) ? prev : [...prev, otherUser]
-          );
+          setConversations((prev) => {
+            const exists = prev.find((c) => c.partner === otherUser);
+            if (exists) {
+              return prev
+                .map((c) =>
+                  c.partner === otherUser
+                    ? { ...c, lastMessageAt: message.sentAt }
+                    : c
+                )
+                .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+            }
+            return [
+              { partner: otherUser, lastMessageAt: message.sentAt },
+              ...prev,
+            ];
+          });
         });
 
         // Subscribe to errors
@@ -97,9 +115,11 @@ export default function ChatPage() {
     setDraft("");
     setError("");
 
-    if (!contacts.includes(trimmed)) {
-      setContacts((prev) => [...prev, trimmed]);
-    }
+    // Add to conversations if not already present
+    setConversations((prev) => {
+      if (prev.some((c) => c.partner === trimmed)) return prev;
+      return [{ partner: trimmed, lastMessageAt: new Date().toISOString() }, ...prev];
+    });
 
     try {
       const history = await getConversation(token, trimmed);
@@ -184,29 +204,37 @@ export default function ChatPage() {
           </form>
         </div>
 
-        {/* Contacts list */}
+        {/* Conversations list */}
         <div className="flex-1 overflow-y-auto">
-          {contacts.length === 0 ? (
+          {conversations.length === 0 ? (
             <div className="p-4 text-center text-gray-400 text-sm">
               No conversations yet. Start chatting!
             </div>
           ) : (
-            contacts.map((contact) => (
+            conversations.map((conv) => (
               <button
-                key={contact}
-                onClick={() => startChat(contact)}
+                key={conv.partner}
+                onClick={() => startChat(conv.partner)}
                 className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer ${
-                  activeChat === contact
+                  activeChat === conv.partner
                     ? "bg-indigo-50 dark:bg-indigo-900/20 border-r-2 border-indigo-600"
                     : ""
                 }`}
               >
                 <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold">
-                  {contact[0].toUpperCase()}
+                  {conv.partner[0].toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 dark:text-white text-sm">
-                    {contact}
+                    {conv.partner}
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    {new Date(conv.lastMessageAt).toLocaleString([], {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 </div>
               </button>

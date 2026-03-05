@@ -1,4 +1,4 @@
-import { AuthRequest, LoginResponse, Message, RegisterResponse } from "./types";
+import { AuthRequest, ConversationsResponse, LoginResponse, Message, RegisterResponse } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -45,6 +45,25 @@ export async function getConversation(
 
   if (!res.ok) {
     throw new Error("Failed to load conversation");
+  }
+
+  return res.json();
+}
+
+export async function getConversations(
+  token: string,
+  page: number = 0,
+  size: number = 20
+): Promise<ConversationsResponse> {
+  const res = await fetch(
+    `${API_BASE}/messages/conversations?page=${page}&size=${size}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to load conversations");
   }
 
   return res.json();
