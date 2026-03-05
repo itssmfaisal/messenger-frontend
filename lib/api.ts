@@ -1,4 +1,4 @@
-import { AuthRequest, ConversationsResponse, LoginResponse, Message, RegisterResponse } from "./types";
+import { AuthRequest, ConversationsResponse, LoginResponse, Message, OnlineUsersResponse, PresenceEvent, RegisterResponse } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -64,6 +64,38 @@ export async function getConversations(
 
   if (!res.ok) {
     throw new Error("Failed to load conversations");
+  }
+
+  return res.json();
+}
+
+export async function getUserPresence(
+  token: string,
+  username: string
+): Promise<PresenceEvent> {
+  const res = await fetch(
+    `${API_BASE}/presence/${encodeURIComponent(username)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to check presence");
+  }
+
+  return res.json();
+}
+
+export async function getOnlineUsers(
+  token: string
+): Promise<OnlineUsersResponse> {
+  const res = await fetch(`${API_BASE}/presence`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to load online users");
   }
 
   return res.json();

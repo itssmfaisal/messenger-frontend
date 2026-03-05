@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { useAuth } from "@/lib/auth-context";
-import { getConversation, getConversations } from "@/lib/api";
-import { Message, ConversationDTO } from "@/lib/types";
+import { getConversation, getConversations, getOnlineUsers } from "@/lib/api";
+import { Message, ConversationDTO, StatusUpdate, PresenceEvent } from "@/lib/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws";
 
@@ -20,8 +20,15 @@ export default function ChatPage() {
   const [status, setStatus] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const clientRef = useRef<Client | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeChatRef = useRef<string | null>(null);
+
+  // Keep activeChatRef in sync
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
 
   useEffect(() => {
     if (!token) {
@@ -31,6 +38,10 @@ export default function ChatPage() {
     // Load existing conversations on login
     getConversations(token).then((res) => {
       setConversations(res.content);
+    }).catch(() => {});
+    // Load online users
+    getOnlineUsers(token).then((res) => {
+      setOnlineUsers(new Set(res.onlineUsers));
     }).catch(() => {});
   }, [token, router]);
 
@@ -58,6 +69,14 @@ export default function ChatPage() {
             return [...prev, message];
           });
 
+          // Auto-mark as delivered if message is from someone else
+          if (message.sender !== username && message.status === "SENT") {
+            client.publish({
+              destination: "/app/chat.delivered",
+              body: JSON.stringify({ messageId: message.id }),
+            });
+          }
+
           // Update conversation list
           const otherUser =
             message.sender === username ? message.recipient : message.sender;
@@ -79,6 +98,23 @@ export default function ChatPage() {
           });
         });
 
+        // Subscribe to delivery/seen status updates
+        client.subscribe("/user/queue/status-updates", (msg: IMessage) => {
+          const update: StatusUpdate = JSON.parse(msg.body);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === update.messageId
+                ? {
+                    ...m,
+                    status: update.status,
+                    deliveredAt: update.deliveredAt || m.deliveredAt,
+                    seenAt: update.seenAt || m.seenAt,
+                  }
+                : m
+            )
+          );
+        });
+
         // Subscribe to errors
         client.subscribe("/user/queue/errors", (msg: IMessage) => {
           const err = JSON.parse(msg.body);
@@ -89,6 +125,20 @@ export default function ChatPage() {
         // Subscribe to status updates
         client.subscribe("/topic/status", (msg: IMessage) => {
           setStatus((prev) => [...prev.slice(-49), msg.body]);
+        });
+
+        // Subscribe to presence events
+        client.subscribe("/topic/presence", (msg: IMessage) => {
+          const event: PresenceEvent = JSON.parse(msg.body);
+          setOnlineUsers((prev) => {
+            const next = new Set(prev);
+            if (event.online) {
+              next.add(event.username);
+            } else {
+              next.delete(event.username);
+            }
+            return next;
+          });
         });
 
         // Announce join
@@ -124,6 +174,19 @@ export default function ChatPage() {
     try {
       const history = await getConversation(token, trimmed);
       setMessages(history);
+
+      // Mark unread messages from the other user as seen
+      const client = clientRef.current;
+      if (client?.connected) {
+        history.forEach((msg) => {
+          if (msg.sender === trimmed && msg.status !== "SEEN") {
+            client.publish({
+              destination: "/app/chat.seen",
+              body: JSON.stringify({ messageId: msg.id }),
+            });
+          }
+        });
+      }
     } catch {
       setMessages([]);
     }
@@ -221,8 +284,13 @@ export default function ChatPage() {
                     : ""
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold">
-                  {conv.partner[0].toUpperCase()}
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold">
+                    {conv.partner[0].toUpperCase()}
+                  </div>
+                  {onlineUsers.has(conv.partner) && (
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 dark:text-white text-sm">
@@ -277,13 +345,21 @@ export default function ChatPage() {
           <>
             {/* Chat header */}
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
-                {activeChat[0].toUpperCase()}
+              <div className="relative">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+                  {activeChat[0].toUpperCase()}
+                </div>
+                {onlineUsers.has(activeChat) && (
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+                )}
               </div>
               <div>
                 <h2 className="font-semibold text-gray-900 dark:text-white">
                   {activeChat}
                 </h2>
+                <p className={`text-xs ${onlineUsers.has(activeChat) ? "text-green-500" : "text-gray-400"}`}>
+                  {onlineUsers.has(activeChat) ? "Online" : "Offline"}
+                </p>
               </div>
             </div>
 
@@ -316,18 +392,50 @@ export default function ChatPage() {
                       }`}
                     >
                       <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                      <p
-                        className={`text-[10px] mt-1 ${
-                          isOwn
-                            ? "text-indigo-200"
-                            : "text-gray-400 dark:text-gray-500"
-                        }`}
-                      >
-                        {new Date(msg.sentAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      <div className={`flex items-center gap-1 mt-1 ${isOwn ? "justify-end" : ""}`}>
+                        <p
+                          className={`text-[10px] ${
+                            isOwn
+                              ? "text-indigo-200"
+                              : "text-gray-400 dark:text-gray-500"
+                          }`}
+                        >
+                          {new Date(msg.sentAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                        {isOwn && (
+                          <span
+                            className="inline-flex items-center ml-0.5"
+                            title={
+                              msg.status === "SEEN" && msg.seenAt
+                                ? `Seen at ${new Date(msg.seenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                                : msg.status === "DELIVERED" && msg.deliveredAt
+                                ? `Delivered at ${new Date(msg.deliveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                                : "Sent"
+                            }
+                          >
+                            {msg.status === "SENT" && (
+                              <svg width="16" height="11" viewBox="0 0 16 11">
+                                <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.5)"/>
+                              </svg>
+                            )}
+                            {msg.status === "DELIVERED" && (
+                              <svg width="16" height="11" viewBox="0 0 16 11">
+                                <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.8)"/>
+                                <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L10.044 6.58 9.2 5.612l-.543.627 1.736 2.01a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L15.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.8)"/>
+                              </svg>
+                            )}
+                            {msg.status === "SEEN" && (
+                              <svg width="16" height="11" viewBox="0 0 16 11">
+                                <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="#FBBF24"/>
+                                <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L10.044 6.58 9.2 5.612l-.543.627 1.736 2.01a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L15.14 1.34a.505.505 0 0 0-.07-.686Z" fill="#FBBF24"/>
+                              </svg>
+                            )}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

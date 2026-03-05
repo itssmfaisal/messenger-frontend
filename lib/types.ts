@@ -3,7 +3,26 @@ export interface Message {
   sender: string;
   recipient: string;
   content: string;
+  status: "SENT" | "DELIVERED" | "SEEN";
   sentAt: string;
+  deliveredAt: string | null;
+  seenAt: string | null;
+}
+
+export interface StatusUpdate {
+  messageId: number;
+  status: "DELIVERED" | "SEEN";
+  deliveredAt?: string;
+  seenAt?: string;
+}
+
+export interface PresenceEvent {
+  username: string;
+  online: boolean;
+}
+
+export interface OnlineUsersResponse {
+  onlineUsers: string[];
 }
 
 export interface ConversationDTO {
