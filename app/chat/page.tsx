@@ -8,7 +8,9 @@ import { useAuth } from "@/lib/auth-context";
 import { getConversation, getConversations, getOnlineUsers } from "@/lib/api";
 import { Message, StatusUpdate, PresenceEvent } from "@/lib/types";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws";
+const WS_URL = (process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws")
+  .replace(/^wss:/, "https:")
+  .replace(/^ws:/, "http:");
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
