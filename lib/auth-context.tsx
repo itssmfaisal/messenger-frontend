@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useSyncExternalStore } from "react";
 
 interface AuthContextType {
   token: string | null;
@@ -11,20 +11,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+function getSessionItem(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(key);
+}
 
-  useEffect(() => {
-    const savedToken = sessionStorage.getItem("token");
-    const savedUsername = sessionStorage.getItem("username");
-    if (savedToken && savedUsername) {
-      setToken(savedToken);
-      setUsername(savedUsername);
-    }
-    setLoaded(true);
-  }, []);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [token, setToken] = useState<string | null>(() => getSessionItem("token"));
+  const [username, setUsername] = useState<string | null>(() => getSessionItem("username"));
+  const loaded = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   function setAuth(newToken: string, newUsername: string) {
     setToken(newToken);
