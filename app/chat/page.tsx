@@ -6,54 +6,102 @@ import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { useAuth } from "@/lib/auth-context";
 import { getConversation, getConversations, getOnlineUsers } from "@/lib/api";
-import { Message, ConversationDTO, StatusUpdate, PresenceEvent } from "@/lib/types";
+import { Message, StatusUpdate, PresenceEvent } from "@/lib/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws";
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                           */
+/* ------------------------------------------------------------------ */
+
+interface ConversationItem {
+  partner: string;
+  lastMessageAt: string;
+  lastMessage: string;
+  unreadCount: number;
+}
+
+const AVATAR_COLORS = [
+  "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
+  "#8B5CF6", "#EC4899", "#6366F1", "#14B8A6",
+  "#F97316", "#06B6D4",
+];
+
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function relativeTime(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60_000);
+  const hrs = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  if (hrs < 24) return `${hrs}h ago`;
+  if (days === 1) return "Yesterday";
+  if (days < 7) return new Date(dateStr).toLocaleDateString([], { weekday: "long" });
+  return new Date(dateStr).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                         */
+/* ------------------------------------------------------------------ */
 
 export default function ChatPage() {
   const { token, username, logout } = useAuth();
   const router = useRouter();
-  const [recipient, setRecipient] = useState("");
+
+  /* --- state --- */
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
-  const [status, setStatus] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [conversations, setConversations] = useState<ConversationDTO[]>([]);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [newChatUser, setNewChatUser] = useState("");
+
   const clientRef = useRef<Client | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const activeChatRef = useRef<string | null>(null);
 
-  // Keep activeChatRef in sync
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
+
+  /* --- bootstrap --- */
 
   useEffect(() => {
     if (!token) {
       router.replace("/login");
       return;
     }
-    // Load existing conversations on login
-    getConversations(token).then((res) => {
-      setConversations(res.content);
-    }).catch(() => {});
-    // Load online users
-    getOnlineUsers(token).then((res) => {
-      setOnlineUsers(new Set(res.onlineUsers));
-    }).catch(() => {});
+    getConversations(token)
+      .then((r) =>
+        setConversations(
+          r.content.map((c) => ({ ...c, lastMessage: "", unreadCount: 0 }))
+        )
+      )
+      .catch(() => {});
+    getOnlineUsers(token)
+      .then((r) => setOnlineUsers(new Set(r.onlineUsers)))
+      .catch(() => {});
   }, [token, router]);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
-
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    scrollBottom();
+  }, [messages, scrollBottom]);
 
-  // WebSocket connection
+  /* --- WebSocket --- */
+
   useEffect(() => {
     if (!token || !username) return;
 
@@ -61,128 +109,131 @@ export default function ChatPage() {
       webSocketFactory: () => new SockJS(WS_URL),
       connectHeaders: { Authorization: `Bearer ${token}` },
       onConnect: () => {
-        // Subscribe to private messages
+        /* private messages */
         client.subscribe("/user/queue/messages", (msg: IMessage) => {
-          const message: Message = JSON.parse(msg.body);
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === message.id)) return prev;
-            return [...prev, message];
-          });
+          const m: Message = JSON.parse(msg.body);
+          setMessages((prev) =>
+            prev.some((p) => p.id === m.id) ? prev : [...prev, m]
+          );
 
-          // Auto-mark as delivered if message is from someone else
-          if (message.sender !== username && message.status === "SENT") {
+          const fromOther = m.sender !== username;
+          if (fromOther && m.status === "SENT") {
             client.publish({
               destination: "/app/chat.delivered",
-              body: JSON.stringify({ messageId: message.id }),
+              body: JSON.stringify({ messageId: m.id }),
             });
           }
 
-          // Update conversation list
-          const otherUser =
-            message.sender === username ? message.recipient : message.sender;
+          const other = m.sender === username ? m.recipient : m.sender;
+          const isActive = activeChatRef.current === other;
+
+          if (fromOther && isActive) {
+            client.publish({
+              destination: "/app/chat.seen",
+              body: JSON.stringify({ messageId: m.id }),
+            });
+          }
+
           setConversations((prev) => {
-            const exists = prev.find((c) => c.partner === otherUser);
-            if (exists) {
-              return prev
-                .map((c) =>
-                  c.partner === otherUser
-                    ? { ...c, lastMessageAt: message.sentAt }
-                    : c
-                )
-                .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-            }
-            return [
-              { partner: otherUser, lastMessageAt: message.sentAt },
-              ...prev,
-            ];
+            const existing = prev.find((c) => c.partner === other);
+            const item: ConversationItem = existing
+              ? {
+                  ...existing,
+                  lastMessageAt: m.sentAt,
+                  lastMessage: m.content,
+                  unreadCount:
+                    fromOther && !isActive
+                      ? existing.unreadCount + 1
+                      : existing.unreadCount,
+                }
+              : {
+                  partner: other,
+                  lastMessageAt: m.sentAt,
+                  lastMessage: m.content,
+                  unreadCount: fromOther && !isActive ? 1 : 0,
+                };
+            return [item, ...prev.filter((c) => c.partner !== other)];
           });
         });
 
-        // Subscribe to delivery/seen status updates
+        /* status updates */
         client.subscribe("/user/queue/status-updates", (msg: IMessage) => {
-          const update: StatusUpdate = JSON.parse(msg.body);
+          const u: StatusUpdate = JSON.parse(msg.body);
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === update.messageId
+              m.id === u.messageId
                 ? {
                     ...m,
-                    status: update.status,
-                    deliveredAt: update.deliveredAt || m.deliveredAt,
-                    seenAt: update.seenAt || m.seenAt,
+                    status: u.status,
+                    deliveredAt: u.deliveredAt || m.deliveredAt,
+                    seenAt: u.seenAt || m.seenAt,
                   }
                 : m
             )
           );
         });
 
-        // Subscribe to errors
+        /* errors */
         client.subscribe("/user/queue/errors", (msg: IMessage) => {
-          const err = JSON.parse(msg.body);
-          setError(err.error || "An error occurred");
+          const e = JSON.parse(msg.body);
+          setError(e.error || "An error occurred");
           setTimeout(() => setError(""), 5000);
         });
 
-        // Subscribe to status updates
-        client.subscribe("/topic/status", (msg: IMessage) => {
-          setStatus((prev) => [...prev.slice(-49), msg.body]);
-        });
-
-        // Subscribe to presence events
+        /* presence */
         client.subscribe("/topic/presence", (msg: IMessage) => {
-          const event: PresenceEvent = JSON.parse(msg.body);
+          const ev: PresenceEvent = JSON.parse(msg.body);
           setOnlineUsers((prev) => {
             const next = new Set(prev);
-            if (event.online) {
-              next.add(event.username);
-            } else {
-              next.delete(event.username);
-            }
+            ev.online ? next.add(ev.username) : next.delete(ev.username);
             return next;
           });
         });
 
-        // Announce join
         client.publish({ destination: "/app/chat.join" });
       },
-      onStompError: (frame) => {
-        setError(`Connection error: ${frame.headers.message}`);
-      },
+      onStompError: (f) => setError(`Connection error: ${f.headers.message}`),
       reconnectDelay: 5000,
     });
 
     client.activate();
     clientRef.current = client;
-
     return () => {
       client.deactivate();
     };
   }, [token, username]);
 
-  async function startChat(user: string) {
+  /* --- actions --- */
+
+  async function openChat(user: string) {
     if (!token || !user.trim()) return;
-    const trimmed = user.trim();
-    setActiveChat(trimmed);
+    const u = user.trim();
+    setActiveChat(u);
     setDraft("");
     setError("");
+    setSidebarOpen(false);
 
-    // Add to conversations if not already present
     setConversations((prev) => {
-      if (prev.some((c) => c.partner === trimmed)) return prev;
-      return [{ partner: trimmed, lastMessageAt: new Date().toISOString() }, ...prev];
+      if (prev.some((c) => c.partner === u))
+        return prev.map((c) =>
+          c.partner === u ? { ...c, unreadCount: 0 } : c
+        );
+      return [
+        { partner: u, lastMessageAt: new Date().toISOString(), lastMessage: "", unreadCount: 0 },
+        ...prev,
+      ];
     });
 
     try {
-      const history = await getConversation(token, trimmed);
+      const history = await getConversation(token, u);
       setMessages(history);
-
-      // Mark unread messages from the other user as seen
-      const client = clientRef.current;
-      if (client?.connected) {
-        history.forEach((msg) => {
-          if (msg.sender === trimmed && msg.status !== "SEEN") {
-            client.publish({
+      const cl = clientRef.current;
+      if (cl?.connected) {
+        history.forEach((m) => {
+          if (m.sender === u && m.status !== "SEEN") {
+            cl.publish({
               destination: "/app/chat.seen",
-              body: JSON.stringify({ messageId: msg.id }),
+              body: JSON.stringify({ messageId: m.id }),
             });
           }
         });
@@ -192,23 +243,21 @@ export default function ChatPage() {
     }
   }
 
-  function handleStartChat(e: FormEvent) {
+  function handleNewChat(e: FormEvent) {
     e.preventDefault();
-    if (recipient.trim()) {
-      startChat(recipient.trim());
-      setRecipient("");
-    }
+    if (!newChatUser.trim()) return;
+    openChat(newChatUser.trim());
+    setNewChatUser("");
+    setShowNewChat(false);
   }
 
   function handleSend(e: FormEvent) {
     e.preventDefault();
     if (!draft.trim() || !activeChat || !clientRef.current?.connected) return;
-
     clientRef.current.publish({
       destination: "/app/chat.send",
       body: JSON.stringify({ recipient: activeChat, content: draft.trim() }),
     });
-
     setDraft("");
   }
 
@@ -218,255 +267,403 @@ export default function ChatPage() {
     router.push("/login");
   }
 
-  const filteredMessages = messages.filter(
+  /* --- derived --- */
+
+  const chatMessages = messages.filter(
     (m) =>
       (m.sender === username && m.recipient === activeChat) ||
       (m.sender === activeChat && m.recipient === username)
   );
 
+  const visibleConvos = conversations.filter((c) =>
+    c.partner.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (!token || !username) return null;
 
+  /* ---------------------------------------------------------------- */
+  /*  Render                                                          */
+  /* ---------------------------------------------------------------- */
+
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-950">
-      {/* Sidebar */}
-      <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-3">
+    <div className="flex h-screen bg-white overflow-hidden">
+      {/* -------- mobile overlay -------- */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ================================================================ */}
+      {/*  SIDEBAR                                                        */}
+      {/* ================================================================ */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-30 w-[340px] bg-white border-r border-gray-200
+          flex flex-col transform transition-transform duration-200 ease-in-out
+          md:relative md:translate-x-0 md:z-0
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
+        {/* header */}
+        <div className="px-5 pt-5 pb-3">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">
-                {username[0].toUpperCase()}
-              </div>
-              <span className="font-semibold text-gray-900 dark:text-white text-sm">
-                {username}
-              </span>
+              {/* mobile close */}
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="md:hidden p-1 -ml-1 text-gray-500 hover:text-gray-700 cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
             </div>
+
             <button
-              onClick={handleLogout}
-              className="text-xs text-gray-500 hover:text-red-500 transition cursor-pointer"
+              onClick={() => { setShowNewChat(!showNewChat); setNewChatUser(""); }}
+              className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition cursor-pointer"
+              title="New conversation"
             >
-              Logout
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+              </svg>
             </button>
           </div>
 
-          {/* New chat input */}
-          <form onSubmit={handleStartChat} className="flex gap-2">
+          {/* search */}
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
               type="text"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder="Start chat with..."
-              className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-100 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
-            <button
-              type="submit"
-              className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition cursor-pointer"
-            >
-              Chat
-            </button>
-          </form>
+          </div>
+
+          {/* new chat form */}
+          {showNewChat && (
+            <form onSubmit={handleNewChat} className="mt-3">
+              <input
+                type="text"
+                value={newChatUser}
+                onChange={(e) => setNewChatUser(e.target.value)}
+                placeholder="Enter username to chat..."
+                autoFocus
+                className="w-full px-4 py-2.5 rounded-xl border border-blue-300 bg-blue-50 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+            </form>
+          )}
         </div>
 
-        {/* Conversations list */}
+        {/* conversations */}
         <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 ? (
-            <div className="p-4 text-center text-gray-400 text-sm">
-              No conversations yet. Start chatting!
+          {visibleConvos.length === 0 ? (
+            <div className="p-6 text-center text-gray-400 text-sm">
+              {searchQuery ? "No conversations found" : "No conversations yet"}
             </div>
           ) : (
-            conversations.map((conv) => (
+            visibleConvos.map((conv) => (
               <button
                 key={conv.partner}
-                onClick={() => startChat(conv.partner)}
-                className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer ${
-                  activeChat === conv.partner
-                    ? "bg-indigo-50 dark:bg-indigo-900/20 border-r-2 border-indigo-600"
-                    : ""
+                onClick={() => openChat(conv.partner)}
+                className={`w-full text-left px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50 transition cursor-pointer ${
+                  activeChat === conv.partner ? "bg-blue-50" : ""
                 }`}
               >
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold">
+                {/* avatar */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                    style={{ backgroundColor: avatarColor(conv.partner) }}
+                  >
                     {conv.partner[0].toUpperCase()}
                   </div>
                   {onlineUsers.has(conv.partner) && (
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+                    <div className="absolute bottom-0 left-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
                   )}
                 </div>
+
+                {/* info */}
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 dark:text-white text-sm">
-                    {conv.partner}
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm text-gray-900 truncate">
+                      {conv.partner}
+                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className="text-xs text-gray-400">
+                        {relativeTime(conv.lastMessageAt)}
+                      </span>
+                      {conv.unreadCount > 0 && (
+                        <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full bg-blue-500 text-white text-[11px] font-semibold px-1.5">
+                          {conv.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                    {new Date(conv.lastMessageAt).toLocaleString([], {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
+                  {conv.lastMessage && (
+                    <p className="text-sm text-gray-500 truncate mt-0.5">
+                      {conv.lastMessage}
+                    </p>
+                  )}
                 </div>
               </button>
             ))
           )}
         </div>
 
-        {/* Status feed */}
-        {status.length > 0 && (
-          <div className="p-3 border-t border-gray-200 dark:border-gray-800 max-h-24 overflow-y-auto">
-            <div className="text-xs text-gray-400 mb-1 font-medium">Activity</div>
-            {status.slice(-3).map((s, i) => (
-              <div key={i} className="text-xs text-gray-500 dark:text-gray-400">
-                {s}
-              </div>
-            ))}
+        {/* user footer */}
+        <div className="px-5 py-3 border-t border-gray-200 flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+            style={{ backgroundColor: avatarColor(username) }}
+          >
+            {username[0].toUpperCase()}
           </div>
-        )}
-      </div>
+          <span className="flex-1 text-sm font-medium text-gray-900 truncate">
+            {username}
+          </span>
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-red-500 transition cursor-pointer"
+            title="Logout"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
+      </aside>
 
-      {/* Chat area */}
-      <div className="flex-1 flex flex-col">
+      {/* ================================================================ */}
+      {/*  CHAT AREA                                                      */}
+      {/* ================================================================ */}
+      <main className="flex-1 flex flex-col min-w-0">
         {!activeChat ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-800 mb-4">
-                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          /* ---------- empty state ---------- */
+          <div className="flex-1 flex items-center justify-center relative">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden absolute top-4 left-4 p-2 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            <div className="text-center px-4">
+              <div className="w-20 h-20 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-5">
+                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-                Your messages
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">
+                Select a conversation
               </h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Select a conversation or start a new one
+              <p className="text-gray-500 text-sm">
+                Choose from your existing conversations or start a new one
               </p>
             </div>
           </div>
         ) : (
           <>
-            {/* Chat header */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+            {/* ---------- chat header ---------- */}
+            <div className="px-4 md:px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-3">
+              {/* mobile hamburger */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="md:hidden p-1 -ml-1 text-gray-500 hover:text-gray-700 cursor-pointer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              {/* avatar */}
+              <div className="relative flex-shrink-0">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: avatarColor(activeChat) }}
+                >
                   {activeChat[0].toUpperCase()}
                 </div>
                 {onlineUsers.has(activeChat) && (
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+                  <div className="absolute bottom-0 left-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
                 )}
               </div>
-              <div>
-                <h2 className="font-semibold text-gray-900 dark:text-white">
+
+              {/* name / status */}
+              <div className="flex-1 min-w-0">
+                <h2 className="font-semibold text-gray-900 text-sm leading-tight">
                   {activeChat}
                 </h2>
-                <p className={`text-xs ${onlineUsers.has(activeChat) ? "text-green-500" : "text-gray-400"}`}>
-                  {onlineUsers.has(activeChat) ? "Online" : "Offline"}
+                <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                  {onlineUsers.has(activeChat) && (
+                    <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                  )}
+                  {onlineUsers.has(activeChat) ? "Active now" : "Offline"}
                 </p>
+              </div>
+
+              {/* action icons */}
+              <div className="flex items-center gap-0.5">
+                <button className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition cursor-pointer" title="Voice call">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </button>
+                <button className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition cursor-pointer" title="Video call">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+                <button className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition cursor-pointer" title="More options">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="5" r="1.5" />
+                    <circle cx="12" cy="12" r="1.5" />
+                    <circle cx="12" cy="19" r="1.5" />
+                  </svg>
+                </button>
               </div>
             </div>
 
-            {/* Error */}
+            {/* ---------- error ---------- */}
             {error && (
-              <div className="mx-6 mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+              <div className="mx-4 md:mx-6 mt-3 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
                 {error}
               </div>
             )}
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-              {filteredMessages.length === 0 && (
+            {/* ---------- messages ---------- */}
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
+              {chatMessages.length === 0 && (
                 <div className="text-center text-gray-400 text-sm mt-10">
                   No messages yet. Say hello!
                 </div>
               )}
-              {filteredMessages.map((msg) => {
-                const isOwn = msg.sender === username;
+
+              {chatMessages.map((msg) => {
+                const own = msg.sender === username;
                 return (
                   <div
                     key={msg.id}
-                    className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+                    className={`flex ${own ? "justify-end" : "justify-start"}`}
                   >
-                    <div
-                      className={`max-w-[70%] px-4 py-2.5 rounded-2xl ${
-                        isOwn
-                          ? "bg-indigo-600 text-white rounded-br-md"
-                          : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md shadow-sm border border-gray-100 dark:border-gray-700"
-                      }`}
-                    >
-                      <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                      <div className={`flex items-center gap-1 mt-1 ${isOwn ? "justify-end" : ""}`}>
-                        <p
-                          className={`text-[10px] ${
-                            isOwn
-                              ? "text-indigo-200"
-                              : "text-gray-400 dark:text-gray-500"
-                          }`}
-                        >
-                          {new Date(msg.sentAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                    <div className="max-w-[75%] md:max-w-[60%]">
+                      <div
+                        className={`px-4 pt-3 pb-2 rounded-2xl ${
+                          own
+                            ? "bg-blue-500 text-white rounded-br-md"
+                            : "bg-gray-100 text-gray-900 rounded-bl-md"
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {msg.content}
                         </p>
-                        {isOwn && (
-                          <span
-                            className="inline-flex items-center ml-0.5"
-                            title={
-                              msg.status === "SEEN" && msg.seenAt
-                                ? `Seen at ${new Date(msg.seenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                                : msg.status === "DELIVERED" && msg.deliveredAt
-                                ? `Delivered at ${new Date(msg.deliveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                                : "Sent"
-                            }
-                          >
-                            {msg.status === "SENT" && (
-                              <svg width="16" height="11" viewBox="0 0 16 11">
-                                <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.5)"/>
-                              </svg>
-                            )}
-                            {msg.status === "DELIVERED" && (
-                              <svg width="16" height="11" viewBox="0 0 16 11">
-                                <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.8)"/>
-                                <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L10.044 6.58 9.2 5.612l-.543.627 1.736 2.01a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L15.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.8)"/>
-                              </svg>
-                            )}
-                            {msg.status === "SEEN" && (
-                              <svg width="16" height="11" viewBox="0 0 16 11">
-                                <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="#FBBF24"/>
-                                <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L10.044 6.58 9.2 5.612l-.543.627 1.736 2.01a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L15.14 1.34a.505.505 0 0 0-.07-.686Z" fill="#FBBF24"/>
-                              </svg>
-                            )}
+
+                        {/* time + status inside bubble */}
+                        <div className={`flex items-center gap-1 mt-1.5 ${own ? "justify-end" : ""}`}>
+                          <span className={`text-[11px] ${own ? "text-blue-100" : "text-gray-400"}`}>
+                            {new Date(msg.sentAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </span>
-                        )}
+
+                          {own && (
+                            <span
+                              className="inline-flex items-center ml-0.5"
+                              title={
+                                msg.status === "SEEN" && msg.seenAt
+                                  ? `Seen at ${new Date(msg.seenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                                  : msg.status === "DELIVERED" && msg.deliveredAt
+                                    ? `Delivered at ${new Date(msg.deliveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                                    : "Sent"
+                              }
+                            >
+                              {msg.status === "SENT" && (
+                                <svg width="14" height="10" viewBox="0 0 16 11">
+                                  <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.6)" />
+                                </svg>
+                              )}
+                              {msg.status === "DELIVERED" && (
+                                <svg width="14" height="10" viewBox="0 0 16 11">
+                                  <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.8)" />
+                                  <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L10.044 6.58 9.2 5.612l-.543.627 1.736 2.01a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L15.14 1.34a.505.505 0 0 0-.07-.686Z" fill="rgba(255,255,255,0.8)" />
+                                </svg>
+                              )}
+                              {msg.status === "SEEN" && (
+                                <svg width="14" height="10" viewBox="0 0 16 11">
+                                  <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L6.044 6.58 3.614 3.776a.493.493 0 0 0-.381-.178.457.457 0 0 0-.304.102.505.505 0 0 0-.07.686l2.736 3.16a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L11.14 1.34a.505.505 0 0 0-.07-.686Z" fill="#ffffff" />
+                                  <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178L10.044 6.58 9.2 5.612l-.543.627 1.736 2.01a.493.493 0 0 0 .381.178.493.493 0 0 0 .381-.178L15.14 1.34a.505.505 0 0 0-.07-.686Z" fill="#ffffff" />
+                                </svg>
+                              )}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
+              <div ref={bottomRef} />
             </div>
 
-            {/* Message input */}
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-              <form onSubmit={handleSend} className="flex gap-3">
-                <input
-                  type="text"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                />
+            {/* ---------- input ---------- */}
+            <div className="px-4 md:px-6 py-3 border-t border-gray-200 bg-white">
+              <form onSubmit={handleSend} className="flex items-center gap-3">
+                {/* attachment */}
+                <button
+                  type="button"
+                  className="p-2 text-gray-400 hover:text-gray-600 transition flex-shrink-0 cursor-pointer"
+                  title="Attach file"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                </button>
+
+                {/* input + emoji */}
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Type a message..."
+                    className="w-full px-4 py-2.5 pr-10 rounded-full border border-gray-300 bg-white text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition cursor-pointer"
+                    title="Emoji"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* send */}
                 <button
                   type="submit"
                   disabled={!draft.trim()}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl font-medium transition cursor-pointer disabled:cursor-not-allowed"
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 text-white disabled:text-gray-400 transition cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
                 </button>
               </form>
             </div>
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }
