@@ -822,7 +822,7 @@ export default function ChatPage() {
                         </svg>
                         <div>
                           <div className="font-medium text-sm">View profile</div>
-                          <div className="text-xs text-gray-500">See {activeChat}'s info</div>
+                          <div className="text-xs text-gray-500">See {activeChat}&apos;s info</div>
                         </div>
                       </button>
                       

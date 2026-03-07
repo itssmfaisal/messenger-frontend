@@ -1,5 +1,7 @@
 import { AuthRequest, ConversationsResponse, LoginResponse, Message, OnlineUsersResponse, PresenceEvent, ProfileUpdateRequest, RegisterResponse, UserProfile } from "./types";
 
+import { LinkPreview } from "./types";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export async function login(data: AuthRequest): Promise<LoginResponse> {
@@ -203,7 +205,7 @@ export function extractUrls(text: string): string[] {
   return text.match(urlRegex) || [];
 }
 
-export async function fetchLinkPreview(url: string): Promise<any> {
+export async function fetchLinkPreview(url: string): Promise<LinkPreview | null> {
   try {
     // Use a CORS proxy or your backend to fetch link metadata
     // For now, we'll simulate the metadata extraction
@@ -248,7 +250,7 @@ export async function fetchLinkPreview(url: string): Promise<any> {
     }
     
     // Enhanced mock data with video support
-    const mockPreviews: Record<string, any> = {
+    const mockPreviews: Record<string, Omit<LinkPreview, 'url'>> = {
       'github.com': {
         title: 'GitHub Repository',
         description: 'A place where the world builds software',
