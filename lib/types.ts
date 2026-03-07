@@ -10,6 +10,17 @@ export interface Message {
   attachmentUrl: string | null;
   attachmentName: string | null;
   attachmentType: string | null;
+  linkPreview?: LinkPreview | null;
+}
+
+export interface LinkPreview {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  domain?: string;
+  isVideo?: boolean;
+  duration?: string;
 }
 
 export interface UserProfile {

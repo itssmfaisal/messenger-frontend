@@ -6,8 +6,8 @@ import Image from "next/image";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { useAuth } from "@/lib/auth-context";
-import { getConversation, getConversations, getOnlineUsers, getProfile, uploadAttachment } from "@/lib/api";
-import { Message, StatusUpdate, PresenceEvent } from "@/lib/types";
+import { getConversation, getConversations, getOnlineUsers, getProfile, uploadAttachment, extractUrls, fetchLinkPreview } from "@/lib/api";
+import { Message, StatusUpdate, PresenceEvent, UserProfile, LinkPreview } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -76,13 +76,20 @@ export default function ChatPage() {
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [profilePictures, setProfilePictures] = useState<Record<string, string | null>>({});
   const [currentUserProfilePicture, setCurrentUserProfilePicture] = useState<string | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileModalData, setProfileModalData] = useState<UserProfile | null>(null);
+  const [profileModalLoading, setProfileModalLoading] = useState(false);
+  const [showChatMenu, setShowChatMenu] = useState(false);
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
+  const [chatAttachments, setChatAttachments] = useState<Message[]>([]);
+  const [linkPreviews, setLinkPreviews] = useState<Record<number, LinkPreview>>({});
 
   const clientRef = useRef<Client | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const activeChatRef = useRef<string | null>(null);
-
+  const chatMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
@@ -337,6 +344,21 @@ export default function ChatPage() {
     setDraft("");
     setAttachmentFile(null);
     
+    // Check for URLs in the message and fetch link previews
+    if (!attachmentUrl && draft.trim()) {
+      const urls = extractUrls(draft.trim());
+      if (urls.length > 0) {
+        // Fetch preview for the first URL found
+        fetchLinkPreview(urls[0]).then(preview => {
+          if (preview) {
+            // Store preview with a temporary ID (will be replaced when message is received)
+            const tempId = Date.now();
+            setLinkPreviews(prev => ({ ...prev, [tempId]: { url: urls[0], ...preview } }));
+          }
+        });
+      }
+    }
+    
     // Keep input focused on mobile to maintain keyboard
     if (messageInputRef.current) {
       // Use requestAnimationFrame to ensure the focus happens after React updates
@@ -364,6 +386,52 @@ export default function ChatPage() {
     router.push("/login");
   }
 
+  async function openProfileModal(username: string) {
+    if (!token) return;
+    setShowProfileModal(true);
+    setProfileModalLoading(true);
+    setProfileModalData(null);
+    
+    try {
+      const profile = await getProfile(token, username);
+      setProfileModalData(profile);
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+    } finally {
+      setProfileModalLoading(false);
+    }
+  }
+
+  function openAttachmentsModal() {
+    if (!activeChat) return;
+    const attachments = chatMessages.filter(msg => msg.attachmentUrl);
+    setChatAttachments(attachments);
+    setShowAttachmentsModal(true);
+    setShowChatMenu(false);
+  }
+
+  // Close chat menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (chatMenuRef.current && !chatMenuRef.current.contains(event.target as Node)) {
+        setShowChatMenu(false);
+      }
+    }
+
+    if (showChatMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showChatMenu]);
+
+  function openAttachmentsModal() {
+    if (!activeChat) return;
+    const attachments = chatMessages.filter(msg => msg.attachmentUrl);
+    setChatAttachments(attachments);
+    setShowAttachmentsModal(true);
+    setShowChatMenu(false);
+  }
+
   /* --- derived --- */
 
   const chatMessages = messages.filter(
@@ -375,6 +443,62 @@ export default function ChatPage() {
   const visibleConvos = conversations.filter((c) =>
     c.partner.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Function to render text with clickable links
+  function renderMessageContent(content: string) {
+    if (!content) return null;
+    
+    const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
+    const parts = content.split(urlRegex);
+    const urls = content.match(urlRegex) || [];
+    
+    return (
+      <span>
+        {parts.map((part, index) => {
+          const urlIndex = Math.floor(index / 3);
+          if (index % 3 === 0) {
+            return part;
+          } else if (urls[urlIndex]) {
+            return (
+              <a
+                key={index}
+                href={urls[urlIndex]}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 underline break-all"
+              >
+                {urls[urlIndex]}
+              </a>
+            );
+          }
+          return part;
+        })}
+      </span>
+    );
+  }
+
+  // Function to get and display link preview for a message
+  function getLinkPreviewForMessage(msg: Message) {
+    if (!msg.content || msg.attachmentUrl) return null;
+    
+    const urls = extractUrls(msg.content);
+    if (urls.length === 0) return null;
+    
+    const url = urls[0];
+    const preview = linkPreviews[msg.id];
+    
+    if (!preview) {
+      // Fetch preview if not already cached
+      fetchLinkPreview(url).then(data => {
+        if (data) {
+          setLinkPreviews(prev => ({ ...prev, [msg.id]: { url, ...data } }));
+        }
+      });
+      return null;
+    }
+    
+    return preview;
+  }
 
   if (!token || !username) return null;
 
@@ -614,7 +738,10 @@ export default function ChatPage() {
               </button>
 
               {/* avatar */}
-              <div className="relative flex-shrink-0">
+              <button 
+                onClick={() => openProfileModal(activeChat)}
+                className="relative flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+              >
                 {profilePictures[activeChat] ? (
                   <Image
                     src={`${API_BASE}${profilePictures[activeChat]}`}
@@ -635,10 +762,13 @@ export default function ChatPage() {
                 {onlineUsers.has(activeChat) && (
                   <div className="absolute bottom-0 left-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
                 )}
-              </div>
+              </button>
 
               {/* name / status */}
-              <div className="flex-1 min-w-0">
+              <button 
+                onClick={() => openProfileModal(activeChat)}
+                className="flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity"
+              >
                 <h2 className="font-semibold text-gray-900 text-sm leading-tight">
                   {activeChat}
                 </h2>
@@ -648,7 +778,7 @@ export default function ChatPage() {
                   )}
                   {onlineUsers.has(activeChat) ? "Active now" : "Offline"}
                 </p>
-              </div>
+              </button>
 
               {/* action icons */}
               <div className="flex items-center gap-0.5">
@@ -662,13 +792,69 @@ export default function ChatPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </button>
-                <button className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition cursor-pointer" title="More options">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="5" r="1.5" />
-                    <circle cx="12" cy="12" r="1.5" />
-                    <circle cx="12" cy="19" r="1.5" />
-                  </svg>
-                </button>
+                
+                {/* More options menu */}
+                <div className="relative" ref={chatMenuRef}>
+                  <button 
+                    onClick={() => setShowChatMenu(!showChatMenu)}
+                    className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition cursor-pointer" 
+                    title="More options"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="12" cy="5" r="1.5" />
+                      <circle cx="12" cy="12" r="1.5" />
+                      <circle cx="12" cy="19" r="1.5" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showChatMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-40">
+                      <button
+                        onClick={() => {
+                          openProfileModal(activeChat);
+                          setShowChatMenu(false);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-700 transition"
+                      >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <div>
+                          <div className="font-medium text-sm">View profile</div>
+                          <div className="text-xs text-gray-500">See {activeChat}'s info</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={openAttachmentsModal}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-700 transition"
+                      >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        <div>
+                          <div className="font-medium text-sm">Media & files</div>
+                          <div className="text-xs text-gray-500">{chatMessages.filter(m => m.attachmentUrl).length} items</div>
+                        </div>
+                      </button>
+                      
+                      <div className="border-t border-gray-100 my-2"></div>
+                      
+                      <button
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-700 transition"
+                      >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <div>
+                          <div className="font-medium text-sm">Report conversation</div>
+                          <div className="text-xs text-gray-500">Report this chat</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -737,10 +923,91 @@ export default function ChatPage() {
 
                         {/* Content text (hide if it's just the auto-filled attachment name) */}
                         {msg.content && !(msg.attachmentUrl && msg.content === msg.attachmentName) && (
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {msg.content}
-                          </p>
+                          <div className="text-sm whitespace-pre-wrap break-words">
+                            {renderMessageContent(msg.content)}
+                          </div>
                         )}
+
+                        {/* Link Preview */}
+                        {(() => {
+                          const preview = getLinkPreviewForMessage(msg);
+                          if (!preview) return null;
+                          
+                          return (
+                            <div className={`mt-2 border rounded-lg overflow-hidden relative ${own ? 'border-blue-400 bg-white/10' : 'border-gray-200 bg-white'} max-w-sm cursor-pointer hover:opacity-90 transition-opacity`}>
+                              {preview.image && (
+                                <div className="aspect-video w-full overflow-hidden relative">
+                                  <Image
+                                    src={preview.image}
+                                    alt={preview.title || 'Link preview'}
+                                    width={300}
+                                    height={200}
+                                    className="w-full h-full object-cover"
+                                    unoptimized
+                                  />
+                                  
+                                  {/* Video Play Button Overlay */}
+                                  {preview.isVideo && (
+                                    <>
+                                      {/* Play Button */}
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-16 h-16 bg-black/60 rounded-full flex items-center justify-center backdrop-blur-sm">
+                                          <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                          </svg>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Duration Badge */}
+                                      {preview.duration && (
+                                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded font-medium">
+                                          {preview.duration}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Video Icon Badge */}
+                                      <div className="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                          <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/>
+                                        </svg>
+                                        VIDEO
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                              <div className="p-3">
+                                {preview.domain && (
+                                  <p className={`text-xs ${own ? 'text-blue-200' : 'text-gray-500'} mb-1 uppercase tracking-wide font-medium flex items-center gap-1`}>
+                                    {preview.isVideo && (
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/>
+                                      </svg>
+                                    )}
+                                    {preview.domain}
+                                  </p>
+                                )}
+                                {preview.title && (
+                                  <h4 className={`font-medium text-sm ${own ? 'text-white' : 'text-gray-900'} mb-1 truncate`}>
+                                    {preview.title}
+                                  </h4>
+                                )}
+                                {preview.description && (
+                                  <p className={`text-xs ${own ? 'text-blue-100' : 'text-gray-600'} truncate`}>
+                                    {preview.description}
+                                  </p>
+                                )}
+                              </div>
+                              <a
+                                href={preview.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="absolute inset-0"
+                                aria-label={`Open ${preview.title || preview.url}`}
+                              />
+                            </div>
+                          );
+                        })()}
 
                         {/* time + status inside bubble */}
                         <div className={`flex items-center gap-1 mt-1.5 ${own ? "justify-end" : ""}`}>
@@ -875,6 +1142,179 @@ export default function ChatPage() {
           </>
         )}
       </main>
+
+      {/* Attachments Modal */}
+      {showAttachmentsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+              <h3 className="text-xl font-bold text-gray-900">Media & Files</h3>
+              <button
+                onClick={() => setShowAttachmentsModal(false)}
+                className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {chatAttachments.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">No shared media</h4>
+                  <p className="text-gray-500">Files and images shared in this conversation will appear here</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {chatAttachments.map((msg) => (
+                    <div key={msg.id} className="bg-gray-50 rounded-lg overflow-hidden hover:bg-gray-100 transition">
+                      {msg.attachmentType?.startsWith("image/") ? (
+                        <div className="aspect-square relative">
+                          <Image
+                            src={`${API_BASE}${msg.attachmentUrl}`}
+                            alt={msg.attachmentName || "Image"}
+                            fill
+                            className="object-cover cursor-pointer"
+                            onClick={() => window.open(`${API_BASE}${msg.attachmentUrl}`, "_blank")}
+                            unoptimized
+                          />
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                            <p className="text-white text-xs truncate font-medium">
+                              {msg.attachmentName || "Image"}
+                            </p>
+                            <p className="text-white/80 text-xs">
+                              {new Date(msg.sentAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <a
+                          href={`${API_BASE}${msg.attachmentUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-4 hover:bg-gray-100 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {msg.attachmentName || "File"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(msg.sentAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">Profile</h3>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {profileModalLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : profileModalData ? (
+                <div className="text-center">
+                  {/* Profile Picture */}
+                  <div className="mb-6">
+                    {profileModalData.profilePictureUrl ? (
+                      <Image
+                        src={`${API_BASE}${profileModalData.profilePictureUrl}`}
+                        alt={profileModalData.username}
+                        width={120}
+                        height={120}
+                        className="w-30 h-30 rounded-full object-cover mx-auto"
+                        unoptimized
+                      />
+                    ) : (
+                      <div
+                        className="w-30 h-30 rounded-full flex items-center justify-center text-white text-4xl font-bold mx-auto"
+                        style={{ backgroundColor: avatarColor(profileModalData.username) }}
+                      >
+                        {profileModalData.username[0].toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Profile Info */}
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-2xl font-bold text-gray-900">
+                        {profileModalData.displayName || profileModalData.username}
+                      </h4>
+                      {profileModalData.displayName && (
+                        <p className="text-gray-500 text-sm mt-1">@{profileModalData.username}</p>
+                      )}
+                    </div>
+
+                    {profileModalData.bio && (
+                      <div className="bg-gray-50 rounded-lg p-4 text-left">
+                        <h5 className="text-sm font-semibold text-gray-700 mb-2">About</h5>
+                        <p className="text-gray-600 text-sm whitespace-pre-wrap">{profileModalData.bio}</p>
+                      </div>
+                    )}
+
+                    {/* Online Status */}
+                    <div className="flex items-center justify-center gap-2 text-sm">
+                      {onlineUsers.has(profileModalData.username) ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-green-500" />
+                          <span className="text-green-600 font-medium">Active now</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-gray-400" />
+                          <span className="text-gray-500">Offline</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">Failed to load profile</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
