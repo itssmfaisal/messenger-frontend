@@ -374,7 +374,7 @@ export default function ChatPage() {
   /* ---------------------------------------------------------------- */
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
+    <div className="flex h-screen bg-white overflow-hidden" style={{ height: '100vh', minHeight: '-webkit-fill-available' }}>
       {/* -------- mobile overlay -------- */}
       {sidebarOpen && (
         <div
@@ -393,6 +393,7 @@ export default function ChatPage() {
           md:relative md:translate-x-0 md:z-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
+        style={{ height: '100vh', minHeight: '-webkit-fill-available' }}
       >
         {/* header */}
         <div className="px-5 pt-5 pb-3">
@@ -562,7 +563,7 @@ export default function ChatPage() {
       {/* ================================================================ */}
       {/*  CHAT AREA                                                      */}
       {/* ================================================================ */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0">
         {!activeChat ? (
           /* ---------- empty state ---------- */
           <div className="flex-1 flex items-center justify-center relative">
@@ -592,7 +593,7 @@ export default function ChatPage() {
         ) : (
           <>
             {/* ---------- chat header ---------- */}
-            <div className="px-4 md:px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-3">
+            <div className="px-4 md:px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-3 flex-shrink-0">
               {/* mobile hamburger */}
               <button
                 onClick={() => setSidebarOpen(true)}
@@ -670,7 +671,7 @@ export default function ChatPage() {
             )}
 
             {/* ---------- messages ---------- */}
-            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4 min-h-0">
               {chatMessages.length === 0 && (
                 <div className="text-center text-gray-400 text-sm mt-10">
                   No messages yet. Say hello!
@@ -781,7 +782,7 @@ export default function ChatPage() {
             </div>
 
             {/* ---------- input ---------- */}
-            <div className="px-4 md:px-6 py-3 border-t border-gray-200 bg-white">
+            <div className="px-4 md:px-6 py-3 border-t border-gray-200 bg-white flex-shrink-0">
               <form onSubmit={handleSend} className="flex items-center gap-3">
                 {/* attachment */}
                 <input
