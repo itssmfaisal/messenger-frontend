@@ -7,6 +7,22 @@ export interface Message {
   sentAt: string;
   deliveredAt: string | null;
   seenAt: string | null;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
+  attachmentType: string | null;
+}
+
+export interface UserProfile {
+  username: string;
+  displayName: string | null;
+  bio: string | null;
+  profilePictureUrl: string | null;
+  createdAt: string;
+}
+
+export interface ProfileUpdateRequest {
+  displayName?: string;
+  bio?: string;
 }
 
 export interface StatusUpdate {

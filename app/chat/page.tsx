@@ -5,8 +5,12 @@ import { useRouter } from "next/navigation";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { useAuth } from "@/lib/auth-context";
-import { getConversation, getConversations, getOnlineUsers } from "@/lib/api";
+import { getConversation, getConversations, getOnlineUsers, getProfile, uploadAttachment } from "@/lib/api";
 import { Message, StatusUpdate, PresenceEvent } from "@/lib/types";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 const WS_URL = (process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws")
   .replace(/^wss:/, "https:")
@@ -67,9 +71,13 @@ export default function ChatPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
   const [newChatUser, setNewChatUser] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [profilePictures, setProfilePictures] = useState<Record<string, string | null>>({});
 
   const clientRef = useRef<Client | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const activeChatRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -84,16 +92,31 @@ export default function ChatPage() {
       return;
     }
     getConversations(token)
-      .then((r) =>
-        setConversations(
-          r.content.map((c) => ({ ...c, lastMessage: "", unreadCount: 0 }))
-        )
-      )
+      .then((r) => {
+        const convos = r.content.map((c) => ({ ...c, lastMessage: "", unreadCount: 0 }));
+        setConversations(convos);
+        convos.forEach((c) => fetchProfilePicture(c.partner));
+      })
       .catch(() => {});
     getOnlineUsers(token)
       .then((r) => setOnlineUsers(new Set(r.onlineUsers)))
       .catch(() => {});
   }, [token, router]);
+
+  function fetchProfilePicture(user: string) {
+    if (!token) return;
+    setProfilePictures((prev) => {
+      if (user in prev) return prev;
+      getProfile(token, user)
+        .then((p) =>
+          setProfilePictures((curr) => ({ ...curr, [user]: p.profilePictureUrl }))
+        )
+        .catch(() =>
+          setProfilePictures((curr) => ({ ...curr, [user]: null }))
+        );
+      return { ...prev, [user]: null };
+    });
+  }
 
   const scrollBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -128,6 +151,8 @@ export default function ChatPage() {
 
           const other = m.sender === username ? m.recipient : m.sender;
           const isActive = activeChatRef.current === other;
+
+          fetchProfilePicture(other);
 
           if (fromOther && isActive) {
             client.publish({
@@ -215,6 +240,8 @@ export default function ChatPage() {
     setError("");
     setSidebarOpen(false);
 
+    fetchProfilePicture(u);
+
     setConversations((prev) => {
       if (prev.some((c) => c.partner === u))
         return prev.map((c) =>
@@ -253,14 +280,56 @@ export default function ChatPage() {
     setShowNewChat(false);
   }
 
-  function handleSend(e: FormEvent) {
+  async function handleSend(e: FormEvent) {
     e.preventDefault();
-    if (!draft.trim() || !activeChat || !clientRef.current?.connected) return;
+    if ((!draft.trim() && !attachmentFile) || !activeChat || !clientRef.current?.connected) return;
+
+    let attachmentUrl: string | undefined;
+    let attachmentName: string | undefined;
+    let attachmentType: string | undefined;
+
+    if (attachmentFile && token) {
+      setAttachmentUploading(true);
+      try {
+        const result = await uploadAttachment(token, attachmentFile);
+        attachmentUrl = result.attachmentUrl;
+        attachmentName = result.attachmentName;
+        attachmentType = result.attachmentType;
+      } catch {
+        setError("Failed to upload attachment");
+        setTimeout(() => setError(""), 5000);
+        setAttachmentUploading(false);
+        return;
+      }
+      setAttachmentUploading(false);
+    }
+
+    const payload: Record<string, string> = {
+      recipient: activeChat,
+      content: draft.trim() || (attachmentName ?? "Attachment"),
+    };
+    if (attachmentUrl) payload.attachmentUrl = attachmentUrl;
+    if (attachmentName) payload.attachmentName = attachmentName;
+    if (attachmentType) payload.attachmentType = attachmentType;
+
     clientRef.current.publish({
       destination: "/app/chat.send",
-      body: JSON.stringify({ recipient: activeChat, content: draft.trim() }),
+      body: JSON.stringify(payload),
     });
     setDraft("");
+    setAttachmentFile(null);
+  }
+
+  function handleAttachmentSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      setError("File size must be less than 10MB");
+      setTimeout(() => setError(""), 5000);
+      return;
+    }
+    setAttachmentFile(file);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = "";
   }
 
   function handleLogout() {
@@ -381,12 +450,20 @@ export default function ChatPage() {
               >
                 {/* avatar */}
                 <div className="relative flex-shrink-0">
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-                    style={{ backgroundColor: avatarColor(conv.partner) }}
-                  >
-                    {conv.partner[0].toUpperCase()}
-                  </div>
+                  {profilePictures[conv.partner] ? (
+                    <img
+                      src={`${API_BASE}${profilePictures[conv.partner]}`}
+                      alt={conv.partner}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                      style={{ backgroundColor: avatarColor(conv.partner) }}
+                    >
+                      {conv.partner[0].toUpperCase()}
+                    </div>
+                  )}
                   {onlineUsers.has(conv.partner) && (
                     <div className="absolute bottom-0 left-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
                   )}
@@ -422,15 +499,23 @@ export default function ChatPage() {
 
         {/* user footer */}
         <div className="px-5 py-3 border-t border-gray-200 flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+          <button
+            onClick={() => router.push("/profile")}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
             style={{ backgroundColor: avatarColor(username) }}
+            title="View profile"
           >
             {username[0].toUpperCase()}
-          </div>
-          <span className="flex-1 text-sm font-medium text-gray-900 truncate">
-            {username}
-          </span>
+          </button>
+          <button
+            onClick={() => router.push("/profile")}
+            className="flex-1 text-left cursor-pointer"
+            title="View profile"
+          >
+            <span className="text-sm font-medium text-gray-900 truncate block">
+              {username}
+            </span>
+          </button>
           <button
             onClick={handleLogout}
             className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-red-500 transition cursor-pointer"
@@ -489,12 +574,20 @@ export default function ChatPage() {
 
               {/* avatar */}
               <div className="relative flex-shrink-0">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                  style={{ backgroundColor: avatarColor(activeChat) }}
-                >
-                  {activeChat[0].toUpperCase()}
-                </div>
+                {profilePictures[activeChat] ? (
+                  <img
+                    src={`${API_BASE}${profilePictures[activeChat]}`}
+                    alt={activeChat}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                    style={{ backgroundColor: avatarColor(activeChat) }}
+                  >
+                    {activeChat[0].toUpperCase()}
+                  </div>
+                )}
                 {onlineUsers.has(activeChat) && (
                   <div className="absolute bottom-0 left-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
                 )}
@@ -565,9 +658,42 @@ export default function ChatPage() {
                             : "bg-gray-100 text-gray-900 rounded-bl-md"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {msg.content}
-                        </p>
+                        {/* Attachment */}
+                        {msg.attachmentUrl && (
+                          <div className="mb-2">
+                            {msg.attachmentType?.startsWith("image/") ? (
+                              <img
+                                src={`${API_BASE}${msg.attachmentUrl}`}
+                                alt={msg.attachmentName || "Image"}
+                                className="max-w-full rounded-lg max-h-60 object-cover cursor-pointer"
+                                onClick={() => window.open(`${API_BASE}${msg.attachmentUrl}`, "_blank")}
+                              />
+                            ) : (
+                              <a
+                                href={`${API_BASE}${msg.attachmentUrl}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 p-2.5 rounded-lg border ${
+                                  own
+                                    ? "border-blue-400 hover:bg-blue-600"
+                                    : "border-gray-300 hover:bg-gray-200"
+                                } transition`}
+                              >
+                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-sm truncate">{msg.attachmentName || "File"}</span>
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Content text (hide if it's just the auto-filled attachment name) */}
+                        {msg.content && !(msg.attachmentUrl && msg.content === msg.attachmentName) && (
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {msg.content}
+                          </p>
+                        )}
 
                         {/* time + status inside bubble */}
                         <div className={`flex items-center gap-1 mt-1.5 ${own ? "justify-end" : ""}`}>
@@ -621,9 +747,17 @@ export default function ChatPage() {
             <div className="px-4 md:px-6 py-3 border-t border-gray-200 bg-white">
               <form onSubmit={handleSend} className="flex items-center gap-3">
                 {/* attachment */}
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  onChange={handleAttachmentSelect}
+                  className="hidden"
+                />
                 <button
                   type="button"
-                  className="p-2 text-gray-400 hover:text-gray-600 transition flex-shrink-0 cursor-pointer"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  disabled={attachmentUploading}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition flex-shrink-0 cursor-pointer disabled:opacity-50"
                   title="Attach file"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -654,7 +788,7 @@ export default function ChatPage() {
                 {/* send */}
                 <button
                   type="submit"
-                  disabled={!draft.trim()}
+                  disabled={(!draft.trim() && !attachmentFile) || attachmentUploading}
                   className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 text-white disabled:text-gray-400 transition cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -662,6 +796,30 @@ export default function ChatPage() {
                   </svg>
                 </button>
               </form>
+
+              {/* Attachment preview */}
+              {attachmentFile && (
+                <div className="mt-2 flex items-center gap-2 px-2">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 max-w-xs">
+                    <svg className="w-4 h-4 flex-shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <span className="truncate">{attachmentFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachmentFile(null)}
+                      className="p-0.5 text-gray-400 hover:text-gray-600 transition cursor-pointer flex-shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  {attachmentUploading && (
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
