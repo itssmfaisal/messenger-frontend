@@ -319,7 +319,7 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreview | null>
       basePreview.image = videoThumbnail;
     }
     
-    return basePreview;
+    return { ...basePreview, url };
   } catch (error) {
     console.error('Failed to fetch link preview:', error);
     return null;

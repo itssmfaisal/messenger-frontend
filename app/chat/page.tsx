@@ -353,7 +353,7 @@ export default function ChatPage() {
           if (preview) {
             // Store preview with a temporary ID (will be replaced when message is received)
             const tempId = Date.now();
-            setLinkPreviews(prev => ({ ...prev, [tempId]: { url: urls[0], ...preview } }));
+            setLinkPreviews(prev => ({ ...prev, [tempId]: { ...preview, url: urls[0] } }));
           }
         });
       }
@@ -424,14 +424,6 @@ export default function ChatPage() {
     }
   }, [showChatMenu]);
 
-  function openAttachmentsModal() {
-    if (!activeChat) return;
-    const attachments = chatMessages.filter(msg => msg.attachmentUrl);
-    setChatAttachments(attachments);
-    setShowAttachmentsModal(true);
-    setShowChatMenu(false);
-  }
-
   /* --- derived --- */
 
   const chatMessages = messages.filter(
@@ -491,7 +483,7 @@ export default function ChatPage() {
       // Fetch preview if not already cached
       fetchLinkPreview(url).then(data => {
         if (data) {
-          setLinkPreviews(prev => ({ ...prev, [msg.id]: { url, ...data } }));
+          setLinkPreviews(prev => ({ ...prev, [msg.id]: { ...data, url } }));
         }
       });
       return null;
