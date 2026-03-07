@@ -75,6 +75,7 @@ export default function ChatPage() {
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [profilePictures, setProfilePictures] = useState<Record<string, string | null>>({});
+  const [currentUserProfilePicture, setCurrentUserProfilePicture] = useState<string | null>(null);
 
   const clientRef = useRef<Client | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -122,7 +123,13 @@ export default function ChatPage() {
     getOnlineUsers(token)
       .then((r) => setOnlineUsers(new Set(r.onlineUsers)))
       .catch(() => {});
-  }, [token, router, fetchProfilePicture]);
+    // Fetch current user's profile picture
+    if (username) {
+      getProfile(token)
+        .then((profile) => setCurrentUserProfilePicture(profile.profilePictureUrl))
+        .catch(() => setCurrentUserProfilePicture(null));
+    }
+  }, [token, router, fetchProfilePicture, username]);
 
   const scrollBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -514,11 +521,22 @@ export default function ChatPage() {
         <div className="px-5 py-3 border-t border-gray-200 flex items-center gap-3">
           <button
             onClick={() => router.push("/profile")}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
-            style={{ backgroundColor: avatarColor(username) }}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-400 transition overflow-hidden"
+            style={currentUserProfilePicture ? {} : { backgroundColor: avatarColor(username) }}
             title="View profile"
           >
-            {username[0].toUpperCase()}
+            {currentUserProfilePicture ? (
+              <Image
+                src={`${API_BASE}${currentUserProfilePicture}`}
+                alt={username}
+                width={36}
+                height={36}
+                className="w-full h-full object-cover"
+                unoptimized
+              />
+            ) : (
+              username[0].toUpperCase()
+            )}
           </button>
           <button
             onClick={() => router.push("/profile")}
