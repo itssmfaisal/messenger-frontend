@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, FormEvent, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { useAuth } from "@/lib/auth-context";
@@ -84,6 +85,26 @@ export default function ChatPage() {
     activeChatRef.current = activeChat;
   }, [activeChat]);
 
+  /* --- profile pictures --- */
+
+  const fetchProfilePicture = useCallback(
+    (user: string) => {
+      if (!token) return;
+      setProfilePictures((prev) => {
+        if (user in prev) return prev;
+        getProfile(token, user)
+          .then((p) =>
+            setProfilePictures((curr) => ({ ...curr, [user]: p.profilePictureUrl }))
+          )
+          .catch(() =>
+            setProfilePictures((curr) => ({ ...curr, [user]: null }))
+          );
+        return { ...prev, [user]: null };
+      });
+    },
+    [token]
+  );
+
   /* --- bootstrap --- */
 
   useEffect(() => {
@@ -101,22 +122,7 @@ export default function ChatPage() {
     getOnlineUsers(token)
       .then((r) => setOnlineUsers(new Set(r.onlineUsers)))
       .catch(() => {});
-  }, [token, router]);
-
-  function fetchProfilePicture(user: string) {
-    if (!token) return;
-    setProfilePictures((prev) => {
-      if (user in prev) return prev;
-      getProfile(token, user)
-        .then((p) =>
-          setProfilePictures((curr) => ({ ...curr, [user]: p.profilePictureUrl }))
-        )
-        .catch(() =>
-          setProfilePictures((curr) => ({ ...curr, [user]: null }))
-        );
-      return { ...prev, [user]: null };
-    });
-  }
+  }, [token, router, fetchProfilePicture]);
 
   const scrollBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -212,7 +218,11 @@ export default function ChatPage() {
           const ev: PresenceEvent = JSON.parse(msg.body);
           setOnlineUsers((prev) => {
             const next = new Set(prev);
-            ev.online ? next.add(ev.username) : next.delete(ev.username);
+            if (ev.online) {
+              next.add(ev.username);
+            } else {
+              next.delete(ev.username);
+            }
             return next;
           });
         });
@@ -228,7 +238,7 @@ export default function ChatPage() {
     return () => {
       client.deactivate();
     };
-  }, [token, username]);
+  }, [token, username, fetchProfilePicture]);
 
   /* --- actions --- */
 
@@ -451,10 +461,13 @@ export default function ChatPage() {
                 {/* avatar */}
                 <div className="relative flex-shrink-0">
                   {profilePictures[conv.partner] ? (
-                    <img
+                    <Image
                       src={`${API_BASE}${profilePictures[conv.partner]}`}
                       alt={conv.partner}
+                      width={48}
+                      height={48}
                       className="w-12 h-12 rounded-full object-cover"
+                      unoptimized
                     />
                   ) : (
                     <div
@@ -575,10 +588,13 @@ export default function ChatPage() {
               {/* avatar */}
               <div className="relative flex-shrink-0">
                 {profilePictures[activeChat] ? (
-                  <img
+                  <Image
                     src={`${API_BASE}${profilePictures[activeChat]}`}
                     alt={activeChat}
+                    width={40}
+                    height={40}
                     className="w-10 h-10 rounded-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <div
@@ -662,11 +678,14 @@ export default function ChatPage() {
                         {msg.attachmentUrl && (
                           <div className="mb-2">
                             {msg.attachmentType?.startsWith("image/") ? (
-                              <img
+                              <Image
                                 src={`${API_BASE}${msg.attachmentUrl}`}
                                 alt={msg.attachmentName || "Image"}
+                                width={400}
+                                height={240}
                                 className="max-w-full rounded-lg max-h-60 object-cover cursor-pointer"
                                 onClick={() => window.open(`${API_BASE}${msg.attachmentUrl}`, "_blank")}
+                                unoptimized
                               />
                             ) : (
                               <a

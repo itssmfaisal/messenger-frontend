@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
 import {
   getProfile,
@@ -182,10 +183,13 @@ export default function ProfilePage() {
                 {/* Avatar */}
                 <div className="relative group">
                   {profile.profilePictureUrl ? (
-                    <img
+                    <Image
                       src={`${API_BASE}${profile.profilePictureUrl}`}
                       alt={profile.username}
+                      width={112}
+                      height={112}
                       className="w-28 h-28 rounded-full object-cover"
+                      unoptimized
                     />
                   ) : (
                     <div
