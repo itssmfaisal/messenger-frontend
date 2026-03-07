@@ -80,6 +80,7 @@ export default function ChatPage() {
   const clientRef = useRef<Client | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const activeChatRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -335,6 +336,14 @@ export default function ChatPage() {
     });
     setDraft("");
     setAttachmentFile(null);
+    
+    // Keep input focused on mobile to maintain keyboard
+    if (messageInputRef.current) {
+      // Use requestAnimationFrame to ensure the focus happens after React updates
+      requestAnimationFrame(() => {
+        messageInputRef.current?.focus();
+      });
+    }
   }
 
   function handleAttachmentSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -806,11 +815,15 @@ export default function ChatPage() {
                 {/* input + emoji */}
                 <div className="flex-1 relative">
                   <input
+                    ref={messageInputRef}
                     type="text"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="Type a message..."
                     className="w-full px-4 py-2.5 pr-10 rounded-full border border-gray-300 bg-white text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="sentences"
                   />
                   <button
                     type="button"
