@@ -1,4 +1,4 @@
-import { AuthRequest, ConversationsResponse, LoginResponse, Message, OnlineUsersResponse, PresenceEvent, ProfileUpdateRequest, RegisterResponse, UserProfile } from "./types";
+import { AuthRequest, ConversationPageResponse, ConversationsResponse, LoginResponse, Message, OnlineUsersResponse, PresenceEvent, ProfileUpdateRequest, RegisterResponse, UserProfile } from "./types";
 
 import { LinkPreview } from "./types";
 
@@ -36,10 +36,12 @@ export async function register(data: AuthRequest): Promise<RegisterResponse> {
 
 export async function getConversation(
   token: string,
-  withUser: string
-): Promise<Message[]> {
+  withUser: string,
+  page: number = 0,
+  size: number = 20
+): Promise<ConversationPageResponse> {
   const res = await fetch(
-    `${API_BASE}/messages/conversation/${encodeURIComponent(withUser)}`,
+    `${API_BASE}/messages/conversation/${encodeURIComponent(withUser)}?page=${page}&size=${size}`,
     {
       headers: { Authorization: `Bearer ${token}` },
     }

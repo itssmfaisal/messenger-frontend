@@ -83,6 +83,9 @@ export default function ChatPage() {
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [chatAttachments, setChatAttachments] = useState<Message[]>([]);
   const [linkPreviews, setLinkPreviews] = useState<Record<number, LinkPreview>>({});
+  const [msgPage, setMsgPage] = useState(0);
+  const [msgHasMore, setMsgHasMore] = useState(false);
+  const [msgLoadingMore, setMsgLoadingMore] = useState(false);
 
   const clientRef = useRef<Client | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -90,6 +93,8 @@ export default function ChatPage() {
   const messageInputRef = useRef<HTMLInputElement>(null);
   const activeChatRef = useRef<string | null>(null);
   const chatMenuRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scrollToBottomOnNextRender = useRef(false);
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
@@ -143,7 +148,10 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
   useEffect(() => {
-    scrollBottom();
+    if (scrollToBottomOnNextRender.current) {
+      scrollToBottomOnNextRender.current = false;
+      scrollBottom();
+    }
   }, [messages, scrollBottom]);
 
   /* --- WebSocket --- */
@@ -158,9 +166,6 @@ export default function ChatPage() {
         /* private messages */
         client.subscribe("/user/queue/messages", (msg: IMessage) => {
           const m: Message = JSON.parse(msg.body);
-          setMessages((prev) =>
-            prev.some((p) => p.id === m.id) ? prev : [...prev, m]
-          );
 
           const fromOther = m.sender !== username;
           if (fromOther && m.status === "SENT") {
@@ -172,6 +177,14 @@ export default function ChatPage() {
 
           const other = m.sender === username ? m.recipient : m.sender;
           const isActive = activeChatRef.current === other;
+
+          if (isActive) {
+            scrollToBottomOnNextRender.current = true;
+          }
+
+          setMessages((prev) =>
+            prev.some((p) => p.id === m.id) ? prev : [...prev, m]
+          );
 
           fetchProfilePicture(other);
 
@@ -264,6 +277,8 @@ export default function ChatPage() {
     setDraft("");
     setError("");
     setSidebarOpen(false);
+    setMsgPage(0);
+    setMsgHasMore(false);
 
     fetchProfilePicture(u);
 
@@ -279,8 +294,11 @@ export default function ChatPage() {
     });
 
     try {
-      const history = await getConversation(token, u);
+      const response = await getConversation(token, u, 0);
+      const history = [...response.content].reverse();
+      scrollToBottomOnNextRender.current = true;
       setMessages(history);
+      setMsgHasMore(!response.last);
       const cl = clientRef.current;
       if (cl?.connected) {
         history.forEach((m) => {
@@ -294,6 +312,7 @@ export default function ChatPage() {
       }
     } catch {
       setMessages([]);
+      setMsgHasMore(false);
     }
   }
 
@@ -303,6 +322,41 @@ export default function ChatPage() {
     openChat(newChatUser.trim());
     setNewChatUser("");
     setShowNewChat(false);
+  }
+
+  async function loadOlderMessages() {
+    if (!token || !activeChat || msgLoadingMore || !msgHasMore) return;
+
+    const container = messagesContainerRef.current;
+    const prevScrollHeight = container?.scrollHeight ?? 0;
+    const prevScrollTop = container?.scrollTop ?? 0;
+
+    setMsgLoadingMore(true);
+    const nextPage = msgPage + 1;
+
+    try {
+      const response = await getConversation(token, activeChat, nextPage);
+      const older = [...response.content].reverse();
+
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newMsgs = older.filter((m) => !existingIds.has(m.id));
+        return [...newMsgs, ...prev];
+      });
+      setMsgPage(nextPage);
+      setMsgHasMore(!response.last);
+
+      // Restore scroll position so the user's view doesn't jump
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight - prevScrollHeight + prevScrollTop;
+        }
+      });
+    } catch {
+      // silently ignore — user can retry by clicking the button again
+    } finally {
+      setMsgLoadingMore(false);
+    }
   }
 
   async function handleSend(e: FormEvent) {
@@ -858,7 +912,19 @@ export default function ChatPage() {
             )}
 
             {/* ---------- messages ---------- */}
-            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4 min-h-0">
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4 min-h-0">
+              {/* Load older messages */}
+              {msgHasMore && (
+                <div className="flex justify-center py-1">
+                  <button
+                    onClick={loadOlderMessages}
+                    disabled={msgLoadingMore}
+                    className="px-4 py-1.5 text-sm text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {msgLoadingMore ? "Loading…" : "Load older messages"}
+                  </button>
+                </div>
+              )}
               {chatMessages.length === 0 && (
                 <div className="text-center text-gray-400 text-sm mt-10">
                   No messages yet. Say hello!

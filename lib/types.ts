@@ -10,6 +10,7 @@ export interface Message {
   attachmentUrl: string | null;
   attachmentName: string | null;
   attachmentType: string | null;
+  attachmentSize: number | null;
   linkPreview?: LinkPreview | null;
 }
 
@@ -59,6 +60,19 @@ export interface ConversationDTO {
 
 export interface ConversationsResponse {
   content: ConversationDTO[];
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+  first: boolean;
+  numberOfElements: number;
+}
+
+export interface ConversationPageResponse {
+  content: Message[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+  };
   totalElements: number;
   totalPages: number;
   last: boolean;
