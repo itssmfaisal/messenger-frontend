@@ -31,12 +31,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
+    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #f0fdf9 0%, #e8faf5 100%)" }}>
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ background: "#e8faf5" }}>
+              <svg className="w-8 h-8" style={{ color: "#13C9A0" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
@@ -61,7 +61,7 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:border-transparent outline-none transition" style={{ outlineColor: "#13C9A0" }}
                 placeholder="Enter your username"
               />
             </div>
@@ -76,7 +76,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:border-transparent outline-none transition" style={{ outlineColor: "#13C9A0" }}
                 placeholder="Enter your password"
               />
             </div>
@@ -84,7 +84,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium transition cursor-pointer disabled:cursor-not-allowed"
+              className="w-full py-2.5 px-4 rounded-lg text-white font-medium transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60" style={{ background: "#13C9A0" }}
             >
               {loading ? "Signing in..." : "Sign in"}
             </button>
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-gray-500">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-blue-500 hover:underline font-medium">
+            <Link href="/signup" className="hover:underline font-medium" style={{ color: "#13C9A0" }}>
               Sign up
             </Link>
           </p>
