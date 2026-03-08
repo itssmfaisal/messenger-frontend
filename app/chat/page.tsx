@@ -428,7 +428,7 @@ export default function ChatPage() {
       {/* ================================================================ */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 w-[290px] bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ height: "100vh", minHeight: "-webkit-fill-available" }}
+        style={{ height: "100dvh" } as React.CSSProperties}
       >
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-shrink-0">
@@ -449,19 +449,19 @@ export default function ChatPage() {
         </div>
 
         {/* User profile */}
-        <div className="px-5 pb-5 flex flex-col items-center flex-shrink-0 border-b border-gray-50">
-          <div className="relative w-[72px] h-[72px] mb-3">
+        <div className="px-5 pb-3 md:pb-5 flex flex-col items-center flex-shrink-0 border-b border-gray-50">
+          <div className="relative w-[56px] h-[56px] md:w-[72px] md:h-[72px] mb-2 md:mb-3">
             {currentUserProfilePicture ? (
               <Image src={`${API_BASE}${currentUserProfilePicture}`} alt={username} width={72} height={72} className="w-full h-full rounded-full object-cover" unoptimized />
             ) : (
-              <div className="w-full h-full rounded-full flex items-center justify-center text-white text-2xl font-bold" style={{ backgroundColor: avatarColor(username) }}>
+              <div className="w-full h-full rounded-full flex items-center justify-center text-white text-xl md:text-2xl font-bold" style={{ backgroundColor: avatarColor(username) }}>
                 {username[0].toUpperCase()}
               </div>
             )}
-            <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-400 rounded-full border-2 border-white" />
+            <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 md:w-4 md:h-4 bg-green-400 rounded-full border-2 border-white" />
           </div>
-          <h2 className="font-bold text-gray-900 text-base">{username}</h2>
-          <button className="mt-2 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-default" style={{ background: "#e8faf5", color: "#13C9A0" }}>
+          <h2 className="font-bold text-gray-900 text-sm md:text-base">{username}</h2>
+          <button className="mt-1.5 md:mt-2 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-default" style={{ background: "#e8faf5", color: "#13C9A0" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#13C9A0" }} />
             available
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
@@ -562,7 +562,7 @@ export default function ChatPage() {
         </div>
 
         {/* Logout */}
-        <div className="px-5 py-3 border-t border-gray-100 flex-shrink-0">
+        <div className="px-5 py-2 md:py-3 border-t border-gray-100 flex-shrink-0" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" } as React.CSSProperties}>
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition text-sm cursor-pointer">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
