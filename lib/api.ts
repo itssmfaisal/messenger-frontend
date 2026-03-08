@@ -4,6 +4,48 @@ import { LinkPreview } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+export async function sendEmailOtp(
+  token: string,
+  email: string
+): Promise<MessageResponse> {
+  const res = await fetch(`${API_BASE}/profile/email/send-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Failed to send verification OTP");
+  }
+
+  return res.json();
+}
+
+export async function verifyEmailOtp(
+  token: string,
+  otp: string
+): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE}/profile/email/verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ otp }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Failed to verify OTP");
+  }
+
+  return res.json();
+}
+
 export async function login(data: AuthRequest): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
