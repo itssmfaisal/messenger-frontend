@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +28,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      await register({ username, password });
+      await register({ username, email, password });
       const { token } = await login({ username, password });
       setAuth(token, username);
       router.push("/chat");
@@ -71,6 +72,21 @@ export default function SignupPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:border-transparent outline-none transition" style={{ outlineColor: "#13C9A0" }}
                 placeholder="Choose a username"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:border-transparent outline-none transition" style={{ outlineColor: "#13C9A0" }}
+                placeholder="Enter your email"
               />
             </div>
 

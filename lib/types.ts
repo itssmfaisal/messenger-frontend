@@ -85,12 +85,37 @@ export interface AuthRequest {
   password: string;
 }
 
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface VerifyOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
 export interface LoginResponse {
   token: string;
 }
 
 export interface RegisterResponse {
   username: string;
+}
+
+export interface MessageResponse {
+  message: string;
 }
 
 export interface ErrorResponse {

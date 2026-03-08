@@ -1,4 +1,4 @@
-import { AuthRequest, ConversationPageResponse, ConversationsResponse, LoginResponse, Message, OnlineUsersResponse, PresenceEvent, ProfileUpdateRequest, RegisterResponse, UserProfile } from "./types";
+import { AuthRequest, RegisterRequest, ForgotPasswordRequest, VerifyOtpRequest, ResetPasswordRequest, ConversationPageResponse, ConversationsResponse, LoginResponse, Message, MessageResponse, OnlineUsersResponse, PresenceEvent, ProfileUpdateRequest, RegisterResponse, UserProfile } from "./types";
 
 import { LinkPreview } from "./types";
 
@@ -19,7 +19,7 @@ export async function login(data: AuthRequest): Promise<LoginResponse> {
   return res.json();
 }
 
-export async function register(data: AuthRequest): Promise<RegisterResponse> {
+export async function register(data: RegisterRequest): Promise<RegisterResponse> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -29,6 +29,51 @@ export async function register(data: AuthRequest): Promise<RegisterResponse> {
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || "Registration failed");
+  }
+
+  return res.json();
+}
+
+export async function forgotPassword(data: ForgotPasswordRequest): Promise<MessageResponse> {
+  const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Failed to send OTP");
+  }
+
+  return res.json();
+}
+
+export async function verifyOtp(data: VerifyOtpRequest): Promise<MessageResponse> {
+  const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Invalid or expired OTP");
+  }
+
+  return res.json();
+}
+
+export async function resetPassword(data: ResetPasswordRequest): Promise<MessageResponse> {
+  const res = await fetch(`${API_BASE}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Failed to reset password");
   }
 
   return res.json();
