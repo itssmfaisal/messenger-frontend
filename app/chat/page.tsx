@@ -575,13 +575,13 @@ export default function ChatPage() {
       {/* ================================================================ */}
       {/*  MAIN CHAT AREA                                                */}
       {/* ================================================================ */}
-      <main className="flex-1 flex flex-col min-w-0 p-3 pl-0" style={{ minHeight: "100dvh" } as React.CSSProperties}>
-        <div className="flex-1 bg-white rounded-2xl flex flex-col overflow-hidden shadow-sm min-h-0">
+      <main className="flex-1 flex flex-col min-w-0 p-0 md:p-3 md:pl-0" style={{ minHeight: "100dvh" } as React.CSSProperties}>
+        <div className="flex-1 bg-white md:rounded-2xl flex flex-col overflow-hidden shadow-sm min-h-0">
           {!activeChat ? (
             /* Empty state */
-            <div className="flex-1 flex flex-col items-center justify-center relative p-8">
-              <button onClick={() => setSidebarOpen(true)} className="md:hidden absolute top-4 left-4 p-2 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-8">
+              <button onClick={() => setSidebarOpen(true)} className="md:hidden absolute top-3 left-3 sm:top-4 sm:left-4 p-2 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
@@ -606,9 +606,9 @@ export default function ChatPage() {
           ) : (
             <>
               {/* Chat header */}
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-4 flex-shrink-0">
-                <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1 -ml-1 text-gray-500 hover:text-gray-700 cursor-pointer">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <div className="px-3 py-3 sm:px-6 sm:py-4 border-b border-gray-100 flex items-center gap-3 sm:gap-4 flex-shrink-0">
+                <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1 -ml-1 text-gray-500 hover:text-gray-700 cursor-pointer flex-shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </button>
@@ -625,7 +625,15 @@ export default function ChatPage() {
                       )}
                       {onlineUsers.has(activeChat) && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />}
                     </button>
-                    <h2 className="font-bold text-gray-900">{activeChat}</h2>
+                    <div className="min-w-0">
+                      <h2 className="font-bold text-gray-900 truncate">{activeChat}</h2>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${onlineUsers.has(activeChat) ? "bg-green-400" : "bg-gray-300"}`} />
+                        <span className={`text-xs font-medium ${onlineUsers.has(activeChat) ? "text-green-500" : "text-gray-400"}`}>
+                          {onlineUsers.has(activeChat) ? "Active now" : "Offline"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
@@ -657,7 +665,7 @@ export default function ChatPage() {
 
               {/* Media tab */}
               {chatTab === "media" ? (
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-6">
                   {chatMessages.filter((m) => m.attachmentUrl).length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center p-8">
                       <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ background: "#f0fdf9" }}>
@@ -694,7 +702,7 @@ export default function ChatPage() {
                 </div>
               ) : (
                 /* Messages tab */
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-3 min-h-0">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4 space-y-3 min-h-0">
                   {msgHasMore && (
                     <div className="flex justify-center py-1">
                       <button onClick={loadOlderMessages} disabled={msgLoadingMore} className="px-4 py-1.5 text-sm rounded-full transition disabled:opacity-50 cursor-pointer hover:bg-gray-100" style={{ color: "#13C9A0" }}>
@@ -711,14 +719,14 @@ export default function ChatPage() {
                       <div key={msg.id} className={`flex ${own ? "justify-end" : "justify-start"} items-end gap-2`}>
                         {/* Avatar for received */}
                         {!own && (
-                          <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-white text-xs font-bold mb-5" style={{ backgroundColor: avatarColor(msg.sender) }}>
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-white text-[10px] sm:text-xs font-bold mb-5" style={{ backgroundColor: avatarColor(msg.sender) }}>
                             {profilePictures[msg.sender] ? (
                               <Image src={`${API_BASE}${profilePictures[msg.sender]}`} alt={msg.sender} width={32} height={32} className="w-full h-full object-cover" unoptimized />
                             ) : msg.sender[0].toUpperCase()}
                           </div>
                         )}
 
-                        <div className={`max-w-[70%] flex flex-col gap-0.5 ${own ? "items-end" : "items-start"}`}>
+                        <div className={`max-w-[85%] sm:max-w-[70%] flex flex-col gap-0.5 ${own ? "items-end" : "items-start"}`}>
                           {/* Header */}
                           <div className={`flex items-center gap-2 px-1 ${own ? "flex-row-reverse" : ""}`}>
                             {!own && <span className="text-xs font-semibold text-gray-600">{msg.sender}</span>}
@@ -791,10 +799,10 @@ export default function ChatPage() {
               )}
 
               {/* Input */}
-              <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
+              <div className="px-3 py-2 sm:px-6 sm:py-4 border-t border-gray-100 flex-shrink-0" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" } as React.CSSProperties}>
                 {attachmentFile && (
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 max-w-xs">
+                  <div className="mb-2 sm:mb-3 flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700 min-w-0 max-w-[calc(100%-2rem)]">
                       <svg className="w-4 h-4 flex-shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
@@ -808,34 +816,36 @@ export default function ChatPage() {
                     {attachmentUploading && <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#13C9A0", borderTopColor: "transparent" }} />}
                   </div>
                 )}
-                <form onSubmit={handleSend} className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-2.5">
+                <form onSubmit={handleSend} className="flex items-center gap-1.5 sm:gap-2 bg-gray-50 rounded-2xl px-2.5 sm:px-4 py-2">
                   <input
                     ref={messageInputRef}
                     type="text"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="Write your message..."
-                    className="flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none"
+                    className="flex-1 min-w-0 bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="sentences"
                   />
-                  <button type="button" className="text-gray-400 hover:text-gray-500 transition p-1 cursor-pointer">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </button>
-                  <input ref={attachmentInputRef} type="file" onChange={handleAttachmentSelect} className="hidden" />
-                  <button type="button" onClick={() => attachmentInputRef.current?.click()} disabled={attachmentUploading} className="text-gray-400 hover:text-gray-500 transition p-1 disabled:opacity-50 cursor-pointer" title="Attach file">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
-                  </button>
-                  <button type="submit" disabled={(!draft.trim() && !attachmentFile) || attachmentUploading} className="w-10 h-10 flex items-center justify-center rounded-xl text-white transition disabled:opacity-40 flex-shrink-0 cursor-pointer disabled:cursor-not-allowed" style={{ background: "#13C9A0" }}>
-                    <svg className="w-5 h-5 rotate-45" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                    <button type="button" className="hidden sm:flex text-gray-400 hover:text-gray-500 transition p-1 cursor-pointer">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                    <input ref={attachmentInputRef} type="file" onChange={handleAttachmentSelect} className="hidden" />
+                    <button type="button" onClick={() => attachmentInputRef.current?.click()} disabled={attachmentUploading} className="text-gray-400 hover:text-gray-500 transition p-1.5 disabled:opacity-50 cursor-pointer flex-shrink-0" title="Attach file">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                    </button>
+                    <button type="submit" disabled={(!draft.trim() && !attachmentFile) || attachmentUploading} className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-white transition disabled:opacity-40 flex-shrink-0 cursor-pointer disabled:cursor-not-allowed" style={{ background: "#13C9A0" }}>
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 rotate-45" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                      </svg>
+                    </button>
+                  </div>
                 </form>
               </div>
             </>
