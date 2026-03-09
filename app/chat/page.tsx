@@ -427,7 +427,7 @@ export default function ChatPage() {
       {/*  CONVERSATIONS PANEL                                            */}
       {/* ================================================================ */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-[290px] bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-30 bg-white border-r border-gray-100 flex flex-col transform transition-transform duration-200 ease-in-out md:relative md:w-[290px] md:translate-x-0 md:z-0 ${!activeChat ? "relative z-0 w-full translate-x-0" : sidebarOpen ? "w-[290px] translate-x-0" : "w-[290px] -translate-x-full"} ${!activeChat ? "flex md:flex" : ""}`}
         style={{ height: "100dvh" } as React.CSSProperties}
       >
         {/* Header */}
@@ -575,16 +575,11 @@ export default function ChatPage() {
       {/* ================================================================ */}
       {/*  MAIN CHAT AREA                                                */}
       {/* ================================================================ */}
-      <main className="flex-1 flex flex-col min-w-0 p-0 md:p-3 md:pl-0" style={{ minHeight: "100dvh" } as React.CSSProperties}>
+      <main className={`flex-1 flex flex-col min-w-0 p-0 md:p-3 md:pl-0 ${!activeChat ? "hidden md:flex" : "flex"}`} style={{ minHeight: "100dvh" } as React.CSSProperties}>
         <div className="flex-1 bg-white md:rounded-2xl flex flex-col overflow-hidden shadow-sm min-h-0">
           {!activeChat ? (
-            /* Empty state */
+            /* Empty state - only visible on desktop since mobile shows conversation list */
             <div className="flex-1 flex flex-col items-center justify-center relative p-4 sm:p-8">
-              <button onClick={() => setSidebarOpen(true)} className="md:hidden absolute top-3 left-3 sm:top-4 sm:left-4 p-2 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
               <div className="flex flex-col items-center text-center max-w-sm">
                 <div className="relative mb-6">
                   <div className="w-24 h-24 rounded-full border-4 border-dashed flex items-center justify-center" style={{ borderColor: "#13C9A0", background: "#f0fdf9" }}>
@@ -607,9 +602,9 @@ export default function ChatPage() {
             <>
               {/* Chat header */}
               <div className="px-3 py-3 sm:px-6 sm:py-4 border-b border-gray-100 flex items-center gap-3 sm:gap-4 flex-shrink-0">
-                <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1 -ml-1 text-gray-500 hover:text-gray-700 cursor-pointer flex-shrink-0">
+                <button onClick={() => { setActiveChat(null); setSidebarOpen(false); }} className="md:hidden p-1 -ml-1 text-gray-500 hover:text-gray-700 cursor-pointer flex-shrink-0">
                   <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
 
