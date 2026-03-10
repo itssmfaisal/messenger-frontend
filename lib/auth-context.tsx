@@ -1,6 +1,5 @@
 "use client";
-
-import { createContext, useContext, useState, ReactNode, useSyncExternalStore } from "react";
+import React, { createContext, useContext, useState, ReactNode, useSyncExternalStore } from "react";
 
 interface AuthContextType {
   token: string | null;
@@ -11,35 +10,44 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getSessionItem(key: string): string | null {
+
+function getLocalItem(key: string): string | null {
   if (typeof window === "undefined") return null;
-  return sessionStorage.getItem(key);
+  return localStorage.getItem(key);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => getSessionItem("token"));
-  const [username, setUsername] = useState<string | null>(() => getSessionItem("username"));
-  const loaded = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
+  const [token, setToken] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+
+  // Sync state with localStorage on mount and when window regains focus
+  React.useEffect(() => {
+    function syncAuth() {
+      setToken(getLocalItem("token"));
+      setUsername(getLocalItem("username"));
+    }
+    syncAuth();
+    window.addEventListener("focus", syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener("focus", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, []);
 
   function setAuth(newToken: string, newUsername: string) {
     setToken(newToken);
     setUsername(newUsername);
-    sessionStorage.setItem("token", newToken);
-    sessionStorage.setItem("username", newUsername);
+    localStorage.setItem("token", newToken);
+    localStorage.setItem("username", newUsername);
   }
 
   function logout() {
     setToken(null);
     setUsername(null);
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("username");
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
   }
-
-  if (!loaded) return null;
 
   return (
     <AuthContext.Provider value={{ token, username, setAuth, logout }}>
