@@ -4,7 +4,7 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { register, login } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/client/auth-context";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
@@ -30,10 +30,17 @@ export default function SignupPage() {
     try {
       await register({ username, email, password });
       const { token } = await login({ username, password });
-      setAuth(token, username);
+      console.log("[SignupPage] ✅ Registration and login successful for user:", username);
+      
+      // Wait for auth to be saved before redirecting
+      await setAuth(token, username);
+      console.log("[SignupPage] ✅ Auth saved, redirecting to chat...");
+      
       router.push("/chat");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const errorMessage = err instanceof Error ? err.message : "Registration failed";
+      console.error("[SignupPage] ❌ Registration error:", errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

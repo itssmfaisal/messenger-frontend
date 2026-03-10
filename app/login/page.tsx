@@ -4,7 +4,7 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/client/auth-context";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -21,10 +21,17 @@ export default function LoginPage() {
 
     try {
       const { token } = await login({ username, password });
-      setAuth(token, username);
+      console.log("[LoginPage] ✅ Login successful for user:", username);
+      
+      // Wait for auth to be saved before redirecting
+      await setAuth(token, username);
+      console.log("[LoginPage] ✅ Auth saved, redirecting to chat...");
+      
       router.push("/chat");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const errorMessage = err instanceof Error ? err.message : "Login failed";
+      console.error("[LoginPage] ❌ Login error:", errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

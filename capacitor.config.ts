@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: "Messenger",
   webDir: "out",
   server: {
-    // For development, point to your backend API
-    // For production, remove or update this
+    // Development: point to your local machine's dev server
+    url: "http://192.168.1.100:3000",
     androidScheme: "https",
   },
 };

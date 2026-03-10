@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/client/auth-context";
 import {
   getProfile,
   updateProfile,
@@ -29,7 +29,7 @@ function avatarColor(name: string) {
 }
 
 export default function ProfilePage() {
-  const { token, username } = useAuth();
+  const { token, username, isInitialized } = useAuth();
   const router = useRouter();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -55,13 +55,14 @@ export default function ProfilePage() {
   const emailOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
+    if (!isInitialized) return;
     if (!token) {
       router.replace("/login");
       return;
     }
     loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, router]);
+  }, [token, router, isInitialized]);
 
   async function loadProfile() {
     if (!token) return;

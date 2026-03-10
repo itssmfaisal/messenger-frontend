@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/client/auth-context";
 import { getConversation, getConversations, getOnlineUsers, getProfile, uploadAttachment, extractUrls, fetchLinkPreview } from "@/lib/api";
 import { Message, StatusUpdate, PresenceEvent, UserProfile, LinkPreview } from "@/lib/types";
 
@@ -35,7 +35,7 @@ function avatarColor(name: string) {
 }
 
 export default function ChatPage() {
-  const { token, username, logout } = useAuth();
+  const { token, username, logout, isInitialized } = useAuth();
   const router = useRouter();
 
   const [activeChat, setActiveChat] = useState<string | null>(null);
@@ -89,21 +89,35 @@ export default function ChatPage() {
   );
 
   useEffect(() => {
-    if (!token) { router.replace("/login"); return; }
+    console.log("[ChatPage] Auth state:", { token: token ? `${token.substring(0,20)}...` : null, username, isInitialized, timestamp: new Date().toISOString() });
+    if (!isInitialized) {
+      console.log("[ChatPage] Auth not initialized yet, waiting...");
+      return;
+    }
+    console.log("[ChatPage] Auth initialized - checking token...");
+    if (!token) {
+      console.log("[ChatPage] No token found, redirecting to login");
+      router.replace("/login");
+      return;
+    }
+    console.log("[ChatPage] Token found, loading conversations...");
     getConversations(token)
       .then((r) => {
+        console.log("[ChatPage] ✅ Conversations loaded:", r.content.length);
         const convos = r.content.map((c) => ({ ...c, lastMessage: "", unreadCount: 0 }));
         setConversations(convos);
         convos.forEach((c) => fetchProfilePicture(c.partner));
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error("[ChatPage] ❌ Failed to load conversations:", error);
+      });
     getOnlineUsers(token).then((r) => setOnlineUsers(new Set(r.onlineUsers))).catch(() => {});
     if (username) {
       getProfile(token)
         .then((p) => setCurrentUserProfilePicture(p.profilePictureUrl))
         .catch(() => setCurrentUserProfilePicture(null));
     }
-  }, [token, router, fetchProfilePicture, username]);
+  }, [token, router, fetchProfilePicture, username, isInitialized]);
 
   const scrollBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -116,11 +130,16 @@ export default function ChatPage() {
   }, [messages, scrollBottom]);
 
   useEffect(() => {
-    if (!token || !username) return;
+    if (!token || !username) {
+      console.log("[ChatPage] Waiting for token and username before WebSocket...");
+      return;
+    }
+    console.log("[ChatPage] 🔌 Setting up WebSocket connection...");
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_URL),
       connectHeaders: { Authorization: `Bearer ${token}` },
       onConnect: () => {
+        console.log("[ChatPage] ✅ WebSocket connected");
         client.subscribe("/user/queue/messages", (msg: IMessage) => {
           const m: Message = JSON.parse(msg.body);
           const fromOther = m.sender !== username;
@@ -162,12 +181,19 @@ export default function ChatPage() {
         });
         client.publish({ destination: "/app/chat.join" });
       },
-      onStompError: (f) => setError(`Connection error: ${f.headers.message}`),
+      onStompError: (f) => {
+        console.error("[ChatPage] ❌ WebSocket error:", f.headers.message);
+        setError(`Connection error: ${f.headers.message}`);
+      },
       reconnectDelay: 5000,
     });
+    console.log("[ChatPage] activating client...");
     client.activate();
     clientRef.current = client;
-    return () => { client.deactivate(); };
+    return () => { 
+      console.log("[ChatPage] 🔌 WebSocket disconnecting...");
+      client.deactivate(); 
+    };
   }, [token, username, fetchProfilePicture]);
 
   async function openChat(user: string) {
@@ -288,8 +314,13 @@ export default function ChatPage() {
 
   function handleLogout() {
     clientRef.current?.deactivate();
-    logout();
-    router.push("/login");
+    logout().then(() => {
+      console.log("[ChatPage] ✅ Logged out, redirecting to login...");
+      router.push("/login");
+    }).catch((err) => {
+      console.error("[ChatPage] ❌ Logout error:", err);
+      router.push("/login"); // Still redirect even if logout fails
+    });
   }
 
   async function openProfileModal(user: string) {
