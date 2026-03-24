@@ -108,8 +108,12 @@ export default function ChatPage() {
         setConversations(convos);
         convos.forEach((c) => fetchProfilePicture(c.partner));
       })
-      .catch((error) => {
+      .catch((error: any) => {
         console.error("[ChatPage] ❌ Failed to load conversations:", error);
+        if (error && error.status === 403) {
+          // Token expired/unauthorized — clear auth and send to login
+          logout().then(() => router.replace("/login"));
+        }
       });
     getOnlineUsers(token).then((r) => setOnlineUsers(new Set(r.onlineUsers))).catch(() => {});
     if (username) {
@@ -225,7 +229,12 @@ export default function ChatPage() {
           }
         });
       }
-    } catch {
+    } catch (error: any) {
+      // If unauthorized, logout and redirect
+      if (error && error.status === 403) {
+        logout().then(() => router.replace("/login"));
+        return;
+      }
       setMessages([]);
       setMsgHasMore(false);
     }

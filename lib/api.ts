@@ -135,7 +135,14 @@ export async function getConversation(
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load conversation");
+    let msg = "Failed to load conversation";
+    try {
+      const body = await res.json();
+      if (body && body.error) msg = body.error;
+    } catch (_) {}
+    const err: any = new Error(msg);
+    err.status = res.status;
+    throw err;
   }
 
   return res.json();
@@ -154,7 +161,14 @@ export async function getConversations(
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load conversations");
+    let msg = "Failed to load conversations";
+    try {
+      const body = await res.json();
+      if (body && body.error) msg = body.error;
+    } catch (_) {}
+    const err: any = new Error(msg);
+    err.status = res.status;
+    throw err;
   }
 
   return res.json();
