@@ -19,8 +19,8 @@ export default function Home() {
       console.log("[Home] Redirecting to /chat");
       router.replace("/chat");
     } else {
-      console.log("[Home] Redirecting to /login");
-      router.replace("/login");
+      console.log("[Home] Redirecting to /landing");
+      router.replace("/landing");
     }
   }, [token, router, isInitialized]);
 

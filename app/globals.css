@@ -86,3 +86,250 @@ body {
     padding-right: env(safe-area-inset-right);
   }
 }
+
+/* Landing and auth animation utilities */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeLeft {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeRight {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes softPop {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scrollDot {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(8px);
+    opacity: 1;
+  }
+}
+
+@keyframes glowDrift {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-12px) translateX(-6px);
+  }
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-up {
+  opacity: 0;
+  animation: fadeUp 0.7s cubic-bezier(0.22, 0.8, 0.22, 1) forwards;
+}
+
+.animate-fade-down {
+  opacity: 0;
+  animation: fadeDown 0.55s ease-out forwards;
+}
+
+.animate-fade-left {
+  opacity: 0;
+  animation: fadeLeft 0.75s cubic-bezier(0.22, 0.8, 0.22, 1) forwards;
+}
+
+.animate-fade-right {
+  opacity: 0;
+  animation: fadeRight 0.75s cubic-bezier(0.22, 0.8, 0.22, 1) forwards;
+}
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+.animate-soft-pop {
+  animation: softPop 0.45s ease-out;
+}
+
+.animate-scroll-dot {
+  animation: scrollDot 1.6s ease-in-out infinite;
+}
+
+.animate-login-card-enter {
+  opacity: 0;
+  animation: cardEnter 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animation-delay-150 {
+  animation-delay: 150ms;
+}
+
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-250 {
+  animation-delay: 250ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
+}
+
+.animation-delay-700 {
+  animation-delay: 700ms;
+}
+
+.landing-root {
+  background: linear-gradient(135deg, #f6fffc 0%, #ebfaf4 47%, #f7fcff 100%);
+}
+
+.landing-bg-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(54px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.landing-bg-orb-left {
+  width: 420px;
+  height: 420px;
+  background: #b9f7e6;
+  top: 70px;
+  left: -110px;
+  animation: glowDrift 8s ease-in-out infinite;
+}
+
+.landing-bg-orb-right {
+  width: 360px;
+  height: 360px;
+  background: #cce8ff;
+  right: -90px;
+  top: 190px;
+  animation: glowDrift 10s ease-in-out infinite reverse;
+}
+
+.landing-float-glow {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 9999px;
+  background: rgba(19, 201, 160, 0.35);
+  filter: blur(46px);
+  bottom: -45px;
+  right: -35px;
+  z-index: -1;
+  animation: glowDrift 7s ease-in-out infinite;
+}
+
+.feature-card {
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 1.5rem;
+  box-shadow: 0 14px 28px -24px rgba(0, 0, 0, 0.32);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 28px 44px -28px rgba(0, 0, 0, 0.3);
+}
+
+.feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  font-size: 1.6rem;
+  background: rgba(19, 201, 160, 0.12);
+}
+
+.login-bg-shape {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(58px);
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.login-bg-shape-left {
+  width: 260px;
+  height: 260px;
+  left: -90px;
+  bottom: -60px;
+  background: #c4f1e6;
+}
+
+.login-bg-shape-right {
+  width: 240px;
+  height: 240px;
+  right: -80px;
+  top: -50px;
+  background: #d2e8ff;
+}
