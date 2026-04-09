@@ -42,8 +42,8 @@ export default function LoginPage() {
       <div className="login-bg-shape login-bg-shape-left" />
       <div className="login-bg-shape login-bg-shape-right" />
 
-      <div className="w-full max-w-lg animate-login-card-enter">
-        <div className="relative rounded-3xl bg-[#f3f5f5] p-8 shadow-[0_22px_45px_-28px_rgba(0,0,0,0.32)] md:p-9">
+      <div className="w-full max-w-md animate-login-card-enter">
+        <div className="relative rounded-3xl bg-[#f3f5f5] p-6 shadow-[0_18px_36px_-24px_rgba(0,0,0,0.28)] md:p-7">
           <Link
             href="/landing"
             aria-label="Close login"
@@ -55,13 +55,13 @@ export default function LoginPage() {
           </Link>
 
           <div className="mb-8 text-center">
-            <div className="inline-flex h-18 w-18 animate-soft-pop items-center justify-center rounded-full bg-[#dff6f0]">
-              <svg className="h-8 w-8 text-[#13C9A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex h-14 w-14 animate-soft-pop items-center justify-center rounded-full bg-[#dff6f0]">
+              <svg className="h-6 w-6 text-[#13C9A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h1 className="mt-5 text-5xl/none font-bold tracking-tight text-slate-900 md:text-6xl/none">Welcome back</h1>
-            <p className="mt-2 text-xl text-slate-500">Sign in to your account</p>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">Welcome back</h1>
+            <p className="mt-2 text-base text-slate-500">Sign in to your account</p>
           </div>
 
           {error && (
@@ -72,7 +72,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="mb-2 block text-[27px] font-medium text-slate-700 md:text-[28px]">
+              <label htmlFor="username" className="mb-2 block text-base font-medium text-slate-700">
                 Username
               </label>
               <input
@@ -81,14 +81,14 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-xl border border-[#c7ced8] bg-[#d9e3f0] px-5 py-4 text-3xl text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:ring-2 focus:ring-[#13C9A0]/35"
-                placeholder="faisal"
+                className="w-full rounded-xl border border-[#c7ced8] bg-[#d9e3f0] px-4 py-3 text-base text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:ring-2 focus:ring-[#13C9A0]/35"
+                placeholder="Username"
               />
             </div>
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="password" className="block text-[27px] font-medium text-slate-700 md:text-[28px]">
+                <label htmlFor="password" className="block text-base font-medium text-slate-700">
                   Password
                 </label>
                 <Link href="/forgot-password" className="text-lg font-medium text-[#13C9A0] transition-colors hover:text-[#0faa87]">
@@ -101,21 +101,21 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-[#c7ced8] bg-[#d9e3f0] px-5 py-4 text-3xl tracking-wide text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:ring-2 focus:ring-[#13C9A0]/35"
-                placeholder="••••••••••••"
+                className="w-full rounded-xl border border-[#c7ced8] bg-[#d9e3f0] px-4 py-3 text-base tracking-wide text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:ring-2 focus:ring-[#13C9A0]/35"
+                placeholder="Password"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full cursor-pointer rounded-xl bg-[#13C9A0] px-4 py-4 text-3xl font-medium text-white transition duration-200 hover:bg-[#10b48f] hover:shadow-[0_12px_24px_-14px_rgba(16,180,143,0.9)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full cursor-pointer rounded-xl bg-[#13C9A0] px-4 py-3 text-base font-medium text-white transition duration-200 hover:bg-[#10b48f] hover:shadow-[0_10px_20px_-12px_rgba(16,180,143,0.9)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
-          <p className="mt-8 text-center text-xl text-slate-500">
+          <p className="mt-6 text-center text-base text-slate-500">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-medium text-[#13C9A0] transition-colors hover:text-[#0faa87]">
               Sign up
