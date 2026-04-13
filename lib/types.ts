@@ -54,6 +54,11 @@ export interface OnlineUsersResponse {
   onlineUsers: string[];
 }
 
+export interface UserNameDisplayNameMappingItem {
+  username: string;
+  displayName: string | null;
+}
+
 export interface ConversationDTO {
   partner: string;
   lastMessageAt: string;
@@ -61,6 +66,7 @@ export interface ConversationDTO {
 
 export interface ConversationsResponse {
   content: ConversationDTO[];
+  displayNameByUsername: Record<string, string>;
   totalElements: number;
   totalPages: number;
   last: boolean;
@@ -70,6 +76,7 @@ export interface ConversationsResponse {
 
 export interface ConversationPageResponse {
   content: Message[];
+  displayNameByUsername: Record<string, string>;
   pageable: {
     pageNumber: number;
     pageSize: number;

@@ -1,8 +1,19 @@
-import { AuthRequest, RegisterRequest, ForgotPasswordRequest, VerifyOtpRequest, ResetPasswordRequest, ConversationPageResponse, ConversationsResponse, LoginResponse, Message, MessageResponse, OnlineUsersResponse, PresenceEvent, ProfileUpdateRequest, RegisterResponse, UserProfile } from "./types";
+import { AuthRequest, RegisterRequest, ForgotPasswordRequest, VerifyOtpRequest, ResetPasswordRequest, ConversationPageResponse, ConversationsResponse, LoginResponse, Message, MessageResponse, OnlineUsersResponse, PresenceEvent, ProfileUpdateRequest, RegisterResponse, UserNameDisplayNameMappingItem, UserProfile } from "./types";
 
 import { LinkPreview } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+function toDisplayNameMap(mapping?: UserNameDisplayNameMappingItem[]): Record<string, string> {
+  if (!Array.isArray(mapping)) return {};
+  return mapping.reduce<Record<string, string>>((acc, item) => {
+    const displayName = item.displayName?.trim();
+    if (item.username && displayName) {
+      acc[item.username] = displayName;
+    }
+    return acc;
+  }, {});
+}
 
 export async function sendEmailOtp(
   token: string,
@@ -145,7 +156,17 @@ export async function getConversation(
     throw err;
   }
 
-  return res.json();
+  const body = await res.json();
+  if (body?.messages) {
+    return {
+      ...body.messages,
+      displayNameByUsername: toDisplayNameMap(body.userNameDisplayNameMapping),
+    };
+  }
+  return {
+    ...body,
+    displayNameByUsername: toDisplayNameMap(body?.userNameDisplayNameMapping),
+  };
 }
 
 export async function getConversations(
@@ -171,7 +192,17 @@ export async function getConversations(
     throw err;
   }
 
-  return res.json();
+  const body = await res.json();
+  if (body?.conversations) {
+    return {
+      ...body.conversations,
+      displayNameByUsername: toDisplayNameMap(body.userNameDisplayNameMapping),
+    };
+  }
+  return {
+    ...body,
+    displayNameByUsername: toDisplayNameMap(body?.userNameDisplayNameMapping),
+  };
 }
 
 export async function getUserPresence(

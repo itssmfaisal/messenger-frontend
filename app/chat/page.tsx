@@ -17,6 +17,7 @@ const WS_URL = (process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws")
 
 interface ConversationItem {
   partner: string;
+  displayName: string;
   lastMessageAt: string;
   lastMessage: string;
   unreadCount: number;
@@ -43,6 +44,7 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [displayNameByUsername, setDisplayNameByUsername] = useState<Record<string, string>>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,10 +71,20 @@ export default function ChatPage() {
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const activeChatRef = useRef<string | null>(null);
+  const displayNameByUsernameRef = useRef<Record<string, string>>({});
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrollToBottomOnNextRender = useRef(false);
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+  useEffect(() => { displayNameByUsernameRef.current = displayNameByUsername; }, [displayNameByUsername]);
+  useEffect(() => {
+    setConversations((prev) => prev.map((c) => ({ ...c, displayName: displayNameByUsername[c.partner] || c.partner })));
+  }, [displayNameByUsername]);
+
+  const getDisplayName = useCallback(
+    (user: string) => displayNameByUsername[user] || user,
+    [displayNameByUsername]
+  );
 
   const fetchProfilePicture = useCallback(
     (user: string) => {
@@ -104,7 +116,13 @@ export default function ChatPage() {
     getConversations(token)
       .then((r) => {
         console.log("[ChatPage] ✅ Conversations loaded:", r.content.length);
-        const convos = r.content.map((c) => ({ ...c, lastMessage: "", unreadCount: 0 }));
+        setDisplayNameByUsername(r.displayNameByUsername || {});
+        const convos = r.content.map((c) => ({
+          ...c,
+          displayName: r.displayNameByUsername?.[c.partner] || c.partner,
+          lastMessage: "",
+          unreadCount: 0,
+        }));
         setConversations(convos);
         convos.forEach((c) => fetchProfilePicture(c.partner));
       })
@@ -160,9 +178,10 @@ export default function ChatPage() {
           }
           setConversations((prev) => {
             const existing = prev.find((c) => c.partner === other);
+            const resolvedDisplayName = displayNameByUsernameRef.current[other] || other;
             const item: ConversationItem = existing
-              ? { ...existing, lastMessageAt: m.sentAt, lastMessage: m.content, unreadCount: fromOther && !isActive ? existing.unreadCount + 1 : existing.unreadCount }
-              : { partner: other, lastMessageAt: m.sentAt, lastMessage: m.content, unreadCount: fromOther && !isActive ? 1 : 0 };
+              ? { ...existing, displayName: existing.displayName || resolvedDisplayName, lastMessageAt: m.sentAt, lastMessage: m.content, unreadCount: fromOther && !isActive ? existing.unreadCount + 1 : existing.unreadCount }
+              : { partner: other, displayName: resolvedDisplayName, lastMessageAt: m.sentAt, lastMessage: m.content, unreadCount: fromOther && !isActive ? 1 : 0 };
             return [item, ...prev.filter((c) => c.partner !== other)];
           });
         });
@@ -213,10 +232,13 @@ export default function ChatPage() {
     fetchProfilePicture(u);
     setConversations((prev) => {
       if (prev.some((c) => c.partner === u)) return prev.map((c) => c.partner === u ? { ...c, unreadCount: 0 } : c);
-      return [{ partner: u, lastMessageAt: new Date().toISOString(), lastMessage: "", unreadCount: 0 }, ...prev];
+      return [{ partner: u, displayName: displayNameByUsernameRef.current[u] || u, lastMessageAt: new Date().toISOString(), lastMessage: "", unreadCount: 0 }, ...prev];
     });
     try {
       const response = await getConversation(token, u, 0);
+      if (Object.keys(response.displayNameByUsername || {}).length > 0) {
+        setDisplayNameByUsername((prev) => ({ ...prev, ...response.displayNameByUsername }));
+      }
       const history = [...response.content].reverse();
       scrollToBottomOnNextRender.current = true;
       setMessages(history);
@@ -257,6 +279,9 @@ export default function ChatPage() {
     const nextPage = msgPage + 1;
     try {
       const response = await getConversation(token, activeChat, nextPage);
+      if (Object.keys(response.displayNameByUsername || {}).length > 0) {
+        setDisplayNameByUsername((prev) => ({ ...prev, ...response.displayNameByUsername }));
+      }
       const older = [...response.content].reverse();
       setMessages((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
@@ -354,7 +379,8 @@ export default function ChatPage() {
   );
 
   const visibleConvos = conversations.filter((c) =>
-    c.partner.toLowerCase().includes(searchQuery.toLowerCase())
+    c.partner.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.displayName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   function renderMessageContent(content: string) {
@@ -582,7 +608,7 @@ export default function ChatPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-sm text-gray-900 truncate">{conv.partner}</span>
+                    <span className="font-semibold text-sm text-gray-900 truncate">{conv.displayName}</span>
                     <span className="text-xs text-gray-400 flex-shrink-0">
                       {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                     </span>
@@ -661,7 +687,7 @@ export default function ChatPage() {
                       {onlineUsers.has(activeChat) && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />}
                     </button>
                     <div className="min-w-0">
-                      <h2 className="font-bold text-gray-900 truncate">{activeChat}</h2>
+                      <h2 className="font-bold text-gray-900 truncate">{getDisplayName(activeChat)}</h2>
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${onlineUsers.has(activeChat) ? "bg-green-400" : "bg-gray-300"}`} />
                         <span className={`text-xs font-medium ${onlineUsers.has(activeChat) ? "text-green-500" : "text-gray-400"}`}>
@@ -764,7 +790,7 @@ export default function ChatPage() {
                         <div className={`max-w-[85%] sm:max-w-[70%] flex flex-col gap-0.5 ${own ? "items-end" : "items-start"}`}>
                           {/* Header */}
                           <div className={`flex items-center gap-2 px-1 ${own ? "flex-row-reverse" : ""}`}>
-                            {!own && <span className="text-xs font-semibold text-gray-600">{msg.sender}</span>}
+                            {!own && <span className="text-xs font-semibold text-gray-600">{getDisplayName(msg.sender)}</span>}
                             {own && <span className="text-xs text-gray-400">You</span>}
                             <span className="text-xs text-gray-400">{new Date(msg.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                           </div>
@@ -910,7 +936,7 @@ export default function ChatPage() {
                 {activeChat[0].toUpperCase()}
               </div>
             )}
-            <h3 className="font-bold text-gray-900 text-base">{activeChat}</h3>
+            <h3 className="font-bold text-gray-900 text-base">{getDisplayName(activeChat)}</h3>
             <div className="flex items-center gap-1.5 mt-1">
               <span className={`w-2 h-2 rounded-full ${onlineUsers.has(activeChat) ? "bg-green-400" : "bg-gray-300"}`} />
               <span className="text-sm text-gray-400">{onlineUsers.has(activeChat) ? "Active now" : "Offline"}</span>
