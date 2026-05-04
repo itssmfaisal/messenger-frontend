@@ -182,7 +182,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #f0fdf9 0%, #e8faf5 100%)" }}>
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8">
           {/* Step indicator */}
           <div className="flex items-center justify-center gap-2 mb-6">
             {(["email", "otp", "reset"] as Step[]).map((s, i) => (
@@ -222,8 +222,8 @@ export default function ForgotPasswordPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ background: "#e8faf5" }}>
               {current.icon}
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{current.title}</h1>
-            <p className="text-gray-500 mt-1 text-sm">{current.subtitle}</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{current.title}</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">{current.subtitle}</p>
           </div>
 
           {/* Messages */}
@@ -242,7 +242,7 @@ export default function ForgotPasswordPage() {
           {step === "email" && (
             <form onSubmit={handleSendOtp} className="space-y-5">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Email address
                 </label>
                 <input
@@ -251,7 +251,7 @@ export default function ForgotPasswordPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:border-transparent outline-none transition"
                   style={{ outlineColor: "#13C9A0" }}
                   placeholder="Enter your email"
                   autoFocus
@@ -273,7 +273,7 @@ export default function ForgotPasswordPage() {
           {step === "otp" && (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">
                   Enter verification code
                 </label>
                 <div className="flex justify-center gap-2 sm:gap-3">
@@ -287,7 +287,7 @@ export default function ForgotPasswordPage() {
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg font-bold rounded-lg border-2 bg-white text-gray-900 outline-none transition"
+                      className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg font-bold rounded-lg border-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none transition"
                       style={{
                         borderColor: digit ? "#13C9A0" : "#d1d5db",
                       }}
@@ -307,7 +307,7 @@ export default function ForgotPasswordPage() {
               </button>
 
               <div className="text-center">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Didn&apos;t receive the code?{" "}
                   {resendCooldown > 0 ? (
                     <span className="text-gray-400">Resend in {resendCooldown}s</span>
@@ -328,7 +328,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="button"
                 onClick={() => { setStep("email"); setOtp(["", "", "", "", "", ""]); setError(""); setSuccess(""); }}
-                className="w-full text-center text-sm text-gray-500 hover:text-gray-700 transition cursor-pointer"
+                className="w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300 transition cursor-pointer"
               >
                 ← Change email address
               </button>
@@ -339,7 +339,7 @@ export default function ForgotPasswordPage() {
           {step === "reset" && (
             <form onSubmit={handleResetPassword} className="space-y-5">
               <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   New password
                 </label>
                 <input
@@ -348,7 +348,7 @@ export default function ForgotPasswordPage() {
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:border-transparent outline-none transition"
                   style={{ outlineColor: "#13C9A0" }}
                   placeholder="Enter new password"
                   autoFocus
@@ -357,7 +357,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div>
-                <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Confirm new password
                 </label>
                 <input
@@ -366,7 +366,7 @@ export default function ForgotPasswordPage() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:border-transparent outline-none transition"
                   style={{ outlineColor: "#13C9A0" }}
                   placeholder="Confirm new password"
                   minLength={6}
@@ -384,7 +384,7 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          <p className="mt-6 text-center text-sm text-gray-500">
+          <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Remember your password?{" "}
             <Link href="/login" className="hover:underline font-medium" style={{ color: "#13C9A0" }}>
               Sign in

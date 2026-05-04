@@ -38,16 +38,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#dce9e7] px-4 py-8">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#dce9e7] dark:bg-gray-950 px-4 py-8">
       <div className="login-bg-shape login-bg-shape-left" />
       <div className="login-bg-shape login-bg-shape-right" />
 
       <div className="w-full max-w-md animate-login-card-enter">
-        <div className="relative rounded-3xl bg-[#f3f5f5] p-6 shadow-[0_18px_36px_-24px_rgba(0,0,0,0.28)] md:p-7">
+        <div className="relative rounded-3xl bg-[#f3f5f5] dark:bg-gray-900 p-6 shadow-[0_18px_36px_-24px_rgba(0,0,0,0.28)] md:p-7">
           <Link
             href="/landing"
             aria-label="Close login"
-            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-200/80 hover:text-slate-800"
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 dark:text-gray-400 transition-colors hover:bg-slate-200/80 hover:text-slate-800"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
@@ -55,13 +55,13 @@ export default function LoginPage() {
           </Link>
 
           <div className="mb-8 text-center">
-            <div className="inline-flex h-14 w-14 animate-soft-pop items-center justify-center rounded-full bg-[#dff6f0]">
+            <div className="inline-flex h-14 w-14 animate-soft-pop items-center justify-center rounded-full bg-[#dff6f0] dark:bg-[#13C9A0]/20">
               <svg className="h-6 w-6 text-[#13C9A0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">Welcome back</h1>
-            <p className="mt-2 text-base text-slate-500">Sign in to your account</p>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-4xl">Welcome back</h1>
+            <p className="mt-2 text-base text-slate-500 dark:text-gray-400">Sign in to your account</p>
           </div>
 
           {error && (
@@ -81,7 +81,7 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-xl border border-[#c7ced8] bg-[#d9e3f0] px-4 py-3 text-base text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:ring-2 focus:ring-[#13C9A0]/35"
+                className="w-full rounded-xl border border-[#c7ced8] dark:border-gray-700 bg-[#d9e3f0] dark:bg-gray-800 px-4 py-3 text-base text-slate-900 dark:text-white outline-none transition-shadow placeholder:text-slate-500 dark:text-gray-400 focus:ring-2 focus:ring-[#13C9A0]/35"
                 placeholder="Username"
               />
             </div>
@@ -101,7 +101,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-[#c7ced8] bg-[#d9e3f0] px-4 py-3 text-base tracking-wide text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:ring-2 focus:ring-[#13C9A0]/35"
+                className="w-full rounded-xl border border-[#c7ced8] dark:border-gray-700 bg-[#d9e3f0] dark:bg-gray-800 px-4 py-3 text-base tracking-wide text-slate-900 dark:text-white outline-none transition-shadow placeholder:text-slate-500 dark:text-gray-400 focus:ring-2 focus:ring-[#13C9A0]/35"
                 placeholder="Password"
               />
             </div>
@@ -115,7 +115,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-base text-slate-500">
+          <p className="mt-6 text-center text-base text-slate-500 dark:text-gray-400">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-medium text-[#13C9A0] transition-colors hover:text-[#0faa87]">
               Sign up

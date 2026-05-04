@@ -186,9 +186,14 @@ export async function getConversations(
     try {
       const body = await res.json();
       if (body && body.error) msg = body.error;
+      else if (body && body.message) msg = body.message;
     } catch (_) {}
     const err: any = new Error(msg);
     err.status = res.status;
+    
+    // Add console.error for better debugging
+    console.error(`[API Error] getConversations failed with status ${res.status}: ${res.statusText}`, msg);
+    
     throw err;
   }
 

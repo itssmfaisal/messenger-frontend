@@ -261,19 +261,19 @@ export default function ProfilePage() {
   if (!token || !username) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-800">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => router.push("/chat")}
-            className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition cursor-pointer"
+            className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300 transition cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold text-gray-900">Profile</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Profile</h1>
         </div>
       </header>
 
@@ -297,7 +297,7 @@ export default function ProfilePage() {
         ) : profile ? (
           <div className="space-y-6">
             {/* Profile Picture Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex flex-col items-center">
                 {/* Avatar */}
                 <div className="relative group">
@@ -344,11 +344,11 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Name & username */}
-                <h2 className="mt-4 text-xl font-bold text-gray-900">
+                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-100">
                   {profile.displayName || profile.username}
                 </h2>
                 {profile.displayName && (
-                  <p className="text-sm text-gray-500 mt-0.5">@{profile.username}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">@{profile.username}</p>
                 )}
 
                 {/* Picture actions */}
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="px-4 py-2 text-sm font-medium hover:bg-gray-50 rounded-lg transition cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:bg-gray-800 rounded-lg transition cursor-pointer disabled:opacity-50"
                     style={{ color: "#13C9A0" }}
                   >
                     {profile.profilePictureUrl ? "Change Photo" : "Upload Photo"}
@@ -375,13 +375,13 @@ export default function ProfilePage() {
             </div>
 
             {/* Profile Details Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-semibold text-gray-900">Profile Details</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Profile Details</h3>
                 {!editing && (
                   <button
                     onClick={() => setEditing(true)}
-                    className="px-4 py-2 text-sm font-medium hover:bg-gray-50 rounded-lg transition cursor-pointer"
+                    className="px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:bg-gray-800 rounded-lg transition cursor-pointer"
                     style={{ color: "#13C9A0" }}
                   >
                     Edit
@@ -392,7 +392,7 @@ export default function ProfilePage() {
               {editing ? (
                 <form onSubmit={handleSave} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       Display Name
                     </label>
                     <input
@@ -401,11 +401,11 @@ export default function ProfilePage() {
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Enter display name"
                       maxLength={50}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       Bio
                     </label>
                     <textarea
@@ -414,7 +414,7 @@ export default function ProfilePage() {
                       placeholder="Write something about yourself..."
                       rows={3}
                       maxLength={200}
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
                     />
                     <p className="text-xs text-gray-400 mt-1 text-right">{bio.length}/200</p>
                   </div>
@@ -434,7 +434,7 @@ export default function ProfilePage() {
                         setDisplayName(profile.displayName || "");
                         setBio(profile.bio || "");
                       }}
-                      className="px-5 py-2.5 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-medium transition cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 text-sm font-medium transition cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -446,13 +446,13 @@ export default function ProfilePage() {
                     <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Username
                     </p>
-                    <p className="text-sm text-gray-900 mt-1">@{profile.username}</p>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">@{profile.username}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Display Name
                     </p>
-                    <p className="text-sm text-gray-900 mt-1">
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
                       {profile.displayName || <span className="text-gray-400 italic">Not set</span>}
                     </p>
                   </div>
@@ -460,7 +460,7 @@ export default function ProfilePage() {
                     <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Bio
                     </p>
-                    <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-1 whitespace-pre-wrap">
                       {profile.bio || <span className="text-gray-400 italic">Not set</span>}
                     </p>
                   </div>
@@ -468,7 +468,7 @@ export default function ProfilePage() {
                     <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Joined
                     </p>
-                    <p className="text-sm text-gray-900 mt-1">
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
                       {profile.createdAt && !isNaN(new Date(profile.createdAt).getTime())
                         ? new Date(profile.createdAt).toLocaleDateString(undefined, {
                             year: "numeric",
@@ -483,13 +483,13 @@ export default function ProfilePage() {
             </div>
 
             {/* Email Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-semibold text-gray-900">Email Address</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Email Address</h3>
                 {!emailEditing && (
                   <button
                     onClick={() => { setEmailEditing(true); setEmailStep("input"); setNewEmail(""); setEmailOtp(["", "", "", "", "", ""]); }}
-                    className="px-4 py-2 text-sm font-medium hover:bg-gray-50 rounded-lg transition cursor-pointer"
+                    className="px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:bg-gray-800 rounded-lg transition cursor-pointer"
                     style={{ color: "#13C9A0" }}
                   >
                     {profile.email ? "Change" : "Add Email"}
@@ -500,7 +500,7 @@ export default function ProfilePage() {
               {!emailEditing ? (
                 <div>
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Email</p>
-                  <p className="text-sm text-gray-900 mt-1">
+                  <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
                     {profile.email || <span className="text-gray-400 italic">No email set</span>}
                   </p>
                   {!profile.email && (
@@ -521,14 +521,14 @@ export default function ProfilePage() {
                     <div className="p-3 rounded-lg border text-sm" style={{ background: "#f0fdf9", borderColor: "#a7f3d0", color: "#065f46" }}>{emailSuccess}</div>
                   )}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">New email address</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">New email address</label>
                     <input
                       type="email"
                       required
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       placeholder="Enter new email"
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:border-transparent transition"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:border-transparent transition"
                       style={{ outlineColor: "#13C9A0" }}
                       autoFocus
                     />
@@ -545,7 +545,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => { setEmailEditing(false); setNewEmail(""); }}
-                      className="px-5 py-2.5 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-medium transition cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 text-sm font-medium transition cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -559,9 +559,9 @@ export default function ProfilePage() {
                   {emailSuccess && (
                     <div className="p-3 rounded-lg border text-sm" style={{ background: "#f0fdf9", borderColor: "#a7f3d0", color: "#065f46" }}>{emailSuccess}</div>
                   )}
-                  <p className="text-sm text-gray-500">We sent a 6-digit code to <span className="font-medium text-gray-700">{newEmail}</span></p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">We sent a 6-digit code to <span className="font-medium text-gray-700 dark:text-gray-300">{newEmail}</span></p>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Enter verification code</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Enter verification code</label>
                     <div className="flex justify-center gap-2 sm:gap-3">
                       {emailOtp.map((digit, index) => (
                         <input
@@ -573,7 +573,7 @@ export default function ProfilePage() {
                           value={digit}
                           onChange={(e) => handleEmailOtpChange(index, e.target.value)}
                           onKeyDown={(e) => handleEmailOtpKeyDown(index, e)}
-                          className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg font-bold rounded-lg border-2 bg-white text-gray-900 outline-none transition"
+                          className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg font-bold rounded-lg border-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 outline-none transition"
                           style={{ borderColor: digit ? "#13C9A0" : "#d1d5db" }}
                           onFocus={(e) => e.target.select()}
                         />
@@ -592,12 +592,12 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => { setEmailEditing(false); setEmailStep("input"); setNewEmail(""); setEmailOtp(["", "", "", "", "", ""]); }}
-                      className="px-5 py-2.5 rounded-xl text-gray-600 hover:bg-gray-100 text-sm font-medium transition cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 text-sm font-medium transition cursor-pointer"
                     >
                       Cancel
                     </button>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
                     Didn&apos;t receive the code?{" "}
                     {emailCooldown > 0 ? (
                       <span className="text-gray-400">Resend in {emailCooldown}s</span>
@@ -616,7 +616,7 @@ export default function ProfilePage() {
             </div>
           </div>
         ) : (
-          <div className="text-center text-gray-500 py-20">
+          <div className="text-center text-gray-500 dark:text-gray-400 py-20">
             Could not load profile.
           </div>
         )}

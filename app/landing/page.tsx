@@ -4,7 +4,7 @@ import Image from "next/image";
 export default function LandingPage() {
   return (
     <div className="landing-root min-h-screen overflow-x-hidden">
-      <header className="fixed top-0 left-0 right-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-md animate-fade-down">
+      <header className="fixed top-0 left-0 right-0 z-40 border-b border-black/5 bg-white dark:bg-gray-900/85 backdrop-blur-md animate-fade-down">
         <div className="mx-auto flex w-full max-w-[92rem] items-center justify-between px-4 py-4 md:px-8 xl:px-12">
           <div className="flex items-center gap-2 text-slate-900">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dff6f0] text-[#13c9a0] shadow-sm">
@@ -48,7 +48,7 @@ export default function LandingPage() {
               </Link>
               <button
                 type="button"
-                className="rounded-xl border border-slate-200 bg-white px-8 py-4 font-medium text-slate-700 transition-all duration-200 hover:scale-[1.02] hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 bg-white dark:bg-gray-900 px-8 py-4 font-medium text-slate-700 transition-all duration-200 hover:scale-[1.02] hover:bg-slate-50"
               >
                 Download for Android
               </button>
@@ -56,7 +56,7 @@ export default function LandingPage() {
           </div>
 
           <div className="animate-fade-left animation-delay-200 relative">
-            <div className="overflow-hidden rounded-3xl bg-white p-2 shadow-[0_35px_80px_-35px_rgba(0,0,0,0.4)]">
+            <div className="overflow-hidden rounded-3xl bg-white dark:bg-gray-900 p-2 shadow-[0_35px_80px_-35px_rgba(0,0,0,0.4)]">
               <Image
                 src="https://images.unsplash.com/photo-1758876200754-17a09a6c2728?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200"
                 alt="People connecting through messenger"
@@ -76,7 +76,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="bg-white px-4 py-28 md:px-8 xl:px-12">
+      <section className="bg-white dark:bg-gray-900 px-4 py-28 md:px-8 xl:px-12">
         <div className="mx-auto max-w-[92rem]">
           <div className="animate-fade-up text-center">
             <h2 className="text-4xl font-semibold tracking-tight text-slate-900 md:text-6xl">Built for connection</h2>
@@ -118,7 +118,7 @@ export default function LandingPage() {
           </div>
 
           <div className="animate-fade-left animation-delay-150 relative">
-            <div className="overflow-hidden rounded-3xl bg-white p-2 shadow-[0_30px_70px_-35px_rgba(0,0,0,0.45)]">
+            <div className="overflow-hidden rounded-3xl bg-white dark:bg-gray-900 p-2 shadow-[0_30px_70px_-35px_rgba(0,0,0,0.45)]">
               <Image
                 src="https://images.unsplash.com/photo-1622532349398-3d9b2b8598c3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=900"
                 alt="Person using messenger app on mobile"
@@ -131,7 +131,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="bg-white px-4 py-28 text-center md:px-8 xl:px-12">
+      <section className="bg-white dark:bg-gray-900 px-4 py-28 text-center md:px-8 xl:px-12">
         <div className="mx-auto max-w-4xl animate-fade-up">
           <h2 className="text-4xl font-semibold tracking-tight text-slate-900 md:text-6xl">Start connecting today</h2>
           <p className="mt-6 text-xl text-slate-600">Join millions already using Messenger to stay in touch.</p>
@@ -153,7 +153,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-black/5 bg-white px-4 py-10 md:px-8 xl:px-12">
+      <footer className="border-t border-black/5 bg-white dark:bg-gray-900 px-4 py-10 md:px-8 xl:px-12">
         <div className="mx-auto flex max-w-[92rem] flex-col items-center justify-between gap-5 md:flex-row">
           <div className="flex items-center gap-2 text-slate-900">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dff6f0] text-[#13c9a0]">

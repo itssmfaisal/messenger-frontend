@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AuthWrapper from "./auth-wrapper";
+import { ThemeProvider } from "./providers";
+import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,11 +34,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthWrapper>{children}</AuthWrapper>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthWrapper>
+            {children}
+            <ThemeToggle />
+          </AuthWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );
